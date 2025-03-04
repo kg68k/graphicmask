@@ -1,0 +1,29 @@
+* $Id: gm_internal.mac,v 1.1 1994/09/13 21:58:29 JACK Exp $
+
+*-------------------------------------------------------------------------------
+* 内部モードのチェックコード
+
+_GM_INTERNAL_MODE	equ	'gm'
+
+*-------------------------------------------------------------------------------
+* 拡張コールのコード
+
+_GM_VERSION_NUMBER	equ	$ff80	* ＧＭバージョンナンバの読み取り
+_GM_MASK_STATE		equ	$ff81	* マスク状態の読み取り
+_GM_GNC_STATE		equ	$ff82	* ＧＮＣ状態の読み取り
+_GM_AUTO_STATE		equ	$ff83	* オートマスク状態の読み取り
+_GM_GRAPHIC_MODE_STATE	equ	$ff84	* グラフィックモードの読み取り
+_GM_ACTIVE_STATE	equ	$ff85	* ＧＭ主要機能の動作状況を見る
+
+_GM_MASK_REQUEST	equ	$ff88	* マスクリクエスト
+_GM_MASK_SET		equ	$ff89	* マスク設定
+_GM_MASK_CLEAR		equ	$ff8a	* マスク解除
+_GM_AUTO_DISABLE	equ	$ff8b	* オートマスク禁止
+_GM_AUTO_ENABLE		equ	$ff8c	* オートマスク許可
+_GM_ACTIVE		equ	$ff8d	* ＧＭの動作開始
+_GM_INACTIVE		equ	$ff8e	* ＧＭの動作停止
+
+_GM_KEEP_PALETTE_GET	equ	$ff90	* 常駐パレット(16色)の先頭アドレスを得る
+_GM_PALETTE_SAVE	equ	$ff91	* 現在のパレットを強制保存（なるべく使うな）
+_GM_GVRAM_SAVE		equ	$ff92	* GVRAMのみ強制保存（パレットはそのまま）
+
