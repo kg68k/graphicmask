@@ -1,5 +1,7 @@
 * $Id: gsvexe.s,v 1.4 1994/11/15 10:38:37 JACK Exp $
 
+* 2025-03-05 TcbnErik DOSコール、IOCSコール名の__を_に置換。
+
 	.include	iocscall.mac
 	.include	doscall.mac
 	.include	gm_internal.mac
@@ -23,7 +25,7 @@ EXIT_ERROR_FILE_EXECUTE	.ds.b	1
 _TO_SUPER	.macro
 * スーパーバイザーモードへ
 	clr.l	-(sp)
-	DOS	__SUPER
+	DOS	_SUPER
 	addq.l	#4,sp
 	move.l	d0,-(sp)
 	.endm
@@ -34,7 +36,7 @@ _TO_USER	.macro
 	move.l	(sp)+,d0
 	bmi	super_end
 	move.l	d0,-(sp)
-	DOS	__SUPER
+	DOS	_SUPER
 	addq.l	#4,sp
 super_end:
 	.endm
@@ -56,7 +58,7 @@ program_start:
 	sub.l	a0,a1
 	move.l	a1,-(sp)
 	move.l	a0,-(sp)
-	DOS	__SETBLOCK
+	DOS	_SETBLOCK
 	addq.l	#8,sp
 	tst.l	d0
 	bmi	error_setblock
@@ -138,7 +140,7 @@ switch_end:
 	pea	(a5)
 	pea	(a4)
 	move.w	#2,-(sp)
-	DOS	__EXEC			* プログラムのpathをサーチ
+	DOS	_EXEC			* プログラムのpathをサーチ
 	lea	14(sp),sp
 	tst.l	d0
 	bmi	error_file_search	* 見あたらない
@@ -148,7 +150,7 @@ switch_end:
 	pea	(a5)
 	pea	(a4)
 	clr.w	-(sp)
-	DOS	__EXEC			* プログラム実行
+	DOS	_EXEC			* プログラム実行
 	lea	14(sp),sp
 	movem.l	(sp)+,d1-d7/a0-a6
 	tst.l	d0
@@ -159,7 +161,7 @@ switch_end:
 	bsr	key_buffer_flush2
 
 	move.w	d0,-(sp)
-	DOS	__EXIT2
+	DOS	_EXIT2
 
 *-------------------------------------------------------------------------------
 * 数値を読み取ってワークにしまう
@@ -318,25 +320,25 @@ timer_on:
 
 	pea	_timer_exit(pc)
 	move.w	#$fff0,-(sp)
-	DOS	__INTVCS
+	DOS	_INTVCS
 	move.l	d0,exit_old
 	addq.l	#6,sp
 
 	pea	_timer_ctrlc(pc)
 	move.w	#$fff1,-(sp)
-	DOS	__INTVCS
+	DOS	_INTVCS
 	move.l	d0,ctrlc_old
 	addq.l	#6,sp
 
 	pea	_timer_abort(pc)
 	move.w	#$fff2,-(sp)
-	DOS	__INTVCS
+	DOS	_INTVCS
 	move.l	d0,abort_old
 	addq.l	#6,sp
 
 	pea	_new_timer(pc)
 	move.w	#$0045,-(sp)
-	DOS	__INTVCS
+	DOS	_INTVCS
 	move.l	d0,timer_old
 	addq.l	#6,sp
 
@@ -406,7 +408,7 @@ timer_off:
 	move.l	d0,-(sp)
 	move.l	timer_old,-(sp)
 	move.w	#$0045,-(sp)
-	DOS	__INTVCS
+	DOS	_INTVCS
 	clr.l	timer_old
 	addq.l	#6,sp
 	move.l	(sp)+,d0
@@ -415,13 +417,13 @@ timer_off:
 
 led_off:
 	movem.l	d0-d3,-(sp)
-	IOCS	__B_SFTSNS
+	IOCS	_B_SFTSNS
 	move.w	d0,led_save
 	moveq.l	#0,d1
 	moveq.l	#0,d2
 	moveq.l	#6-1,d3
 led_off_loop:
-	IOCS	__LEDMOD
+	IOCS	_LEDMOD
 	addq.l	#1,d1
 	dbra	d3,led_off_loop
 	clr.w	led_slide
@@ -442,7 +444,7 @@ led_restore_loop:
 	btst.l	d1,d3
 	sne.b	d2
 	and.b	d5,d2
-	IOCS	__LEDMOD
+	IOCS	_LEDMOD
 	addq.l	#1,d1
 	dbra	d4,led_restore_loop
 	clr.w	led_old
@@ -473,7 +475,7 @@ key_buffer_flush_loop:
 	clr.b	d3
 @@:
 	move.w	d2,d1
-	IOCS	__BITSNS
+	IOCS	_BITSNS
 	or.b	d0,d3
 	dbra	d2,@b
 	tst.b	d3
@@ -494,7 +496,7 @@ key_buffer_flush2_end:
 key_buffer_flush_sub:
 	move.w	#$ff,-(sp)
 	move.w	#6,-(sp)
-	DOS	__KFLUSH
+	DOS	_KFLUSH
 	addq.l	#4,sp
 	rts
 
@@ -568,14 +570,14 @@ graphic_push:
 
 	move.l	#512*1024,-(sp)
 	move.w	#2,-(sp)		* 上位から確保
-	DOS	__MALLOC2
+	DOS	_MALLOC2
 	addq.l	#6,sp
 	tst.l	d0
 	bmi	graphic_push_end
 	move.l	d0,malloc_pointer
 
 	moveq.l	#-1,d1
-	IOCS	__CRTMOD
+	IOCS	_CRTMOD
 	move.w	d0,iocs_mode
 
 	_TO_SUPER
@@ -745,7 +747,7 @@ graphic_pop:
 
 	move.w	iocs_mode,d1
 	or.w	#$0100,d1
-	IOCS	__CRTMOD
+	IOCS	_CRTMOD
 
 	_TO_SUPER
 	move.w	crtc_r20,d0
@@ -956,7 +958,7 @@ _gm_internal_tgusemd:
 	swap.w	d1
 	move.w	#_GM_INTERNAL_MODE,d1
 	swap.w	d1
-	IOCS	__TGUSEMD
+	IOCS	_TGUSEMD
 	rts
 
 *-------------------------------------------------------------------------------
@@ -976,10 +978,10 @@ message_help:
 	.text
 help:
 	pea	message_help
-	DOS	__PRINT
+	DOS	_PRINT
 	addq.l	#4,sp
 	move.w	#EXIT_HELP,-(sp)
-	DOS	__EXIT2
+	DOS	_EXIT2
 
 *-------------------------------------------------------------------------------
 * エラー処理
@@ -1017,17 +1019,17 @@ error_file_execute:
 error_file:
 	exg.l	d0,d1
 	pea	message_error_file(pc)
-	DOS	__PRINT
+	DOS	_PRINT
 	addq.l	#4,sp
 	exg.l	d0,d1
 
 error_exit:
 	move.w	d0,-(sp)
 	move.l	a0,-(sp)
-	DOS	__PRINT
+	DOS	_PRINT
 	addq.l	#4,sp
-	DOS	__ALLCLOSE
-	DOS	__EXIT2
+	DOS	_ALLCLOSE
+	DOS	_EXIT2
 
 *-------------------------------------------------------------------------------
 

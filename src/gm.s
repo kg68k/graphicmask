@@ -1,175 +1,235 @@
 * $Id: gm.s,v 1.2 1994/09/15 22:18:58 JACK Exp $
 
-	.include	iocscall.mac
-	.include	doscall.mac
-	.include	gm_internal.mac
 
-*
-	.text
-program_text_start:
-	.data
-program_data_start:
-	.bss
-program_bss_start:
-	.stack
-program_stack_start:
-	.text
-*
+* ＧＭのバージョン
+GM_VERSION:	.equ	$0087
+
+PATCHLEVEL:	.reg	'4'
+
+
+* Include File -------------------------------- *
+
+		.include	iocscall.mac
+		.include	doscall.mac
+		.include	gm_internal.mac
+
 
 *-------------------------------------------------------------------------------
 * 終了コードの定義
 
-	.offset	0
-EXIT_NO_ERROR		.ds.b	1
-EXIT_HELP		.ds.b	1
-EXIT_ERROR_OS_VERSION	.ds.b	1
-EXIT_ERROR_OPTION	.ds.b	1
-EXIT_ERROR_GNCMODE	.ds.b	1
-EXIT_ERROR_DEN_MASK	.ds.b	1
-EXIT_ERROR_SETBLOCK	.ds.b	1
-EXIT_ERROR_KEEP		.ds.b	1
-EXIT_ERROR_RELEASE	.ds.b	1
-EXIT_ERROR_NOT_KEEP	.ds.b	1
-EXIT_ERROR_NOT_SUPPORT	.ds.b	1
-EXIT_ERROR_TRAM_USED	.ds.b	1
-	.text
+			.offset	0
+EXIT_NO_ERROR:		.ds.b	1
+EXIT_ERROR_OS_VERSION:	.ds.b	1
+EXIT_ERROR_OPTION:	.ds.b	1
+EXIT_ERROR_GNCMODE:	.ds.b	1
+EXIT_ERROR_DEN_MASK:	.ds.b	1
+EXIT_ERROR_GSTOP:	.ds.b	1
+EXIT_ERROR_SETBLOCK:	.ds.b	1
+EXIT_ERROR_KEEP:	.ds.b	1
+EXIT_ERROR_RELEASE:	.ds.b	1
+EXIT_ERROR_NOT_KEEP:	.ds.b	1
+EXIT_ERROR_NOT_SUPPORT:	.ds.b	1
+EXIT_ERROR_TRAM_USED:	.ds.b	1
+			.text
+
+
+*-------------------------------------------------------------------------------
+* マクロの定義
+
+PUSH:		.macro	regs
+		movem.l	regs,-(sp)
+		.endm
+POP:		.macro	regs
+		movem.l	(sp)+,regs
+		.endm
+
+TAB:		.equ	$09
+LF:		.equ	$0a
+CR:		.equ	$0d
+SPACE:		.equ	$20
+		.ifdef	__CRLF__
+CRLF:		.reg	CR,LF
+		.else
+CRLF:		.reg	LF
+		.endif
+
+STACK_SIZE:	.equ	8*1024
+
+
+*-------------------------------------------------------------------------------
+* Ｉ／Ｏアドレス
+
+G_VRAM:		.equ	$c00000
+
+CRTC_R00:	.equ	$e80000
+CRTC_R12:	.equ	$e80018
+CRTC_R20:	.equ	$e80028
+CRTC_R20h:	.equ	$e80028
+CRTC_R20l:	.equ	$e80029
+CRTC_R21:	.equ	$e8002a
+
+GRAPHIC_PAL:	.equ	$e82000
+
+VC_R0:		.equ	$e82400
+VC_R0h:		.equ	$e82400
+VC_R0l:		.equ	$e82401
+VC_R2:		.equ	$e82600
+VC_R2h:		.equ	$e82600
+VC_R2l:		.equ	$e82601
+
+MFP_GPIP:	.equ	$e88001
+
+BGSR_BG0:	.equ	$eb0800
+
+SRAM_TPAL0:	.equ	$ed002e
+SRAM_TPAL8:	.equ	$ed0038
+
+TVRAM_P3:	.equ	$e60000
+TPALET:		.equ	$e82200
+
+
+*-------------------------------------------------------------------------------
+
+		.text
+program_text_start:
+		.data
+program_data_start:
+		.bss
+program_bss_start:
+		.stack
+program_stack_start:
+		.text
+
 
 *-------------------------------------------------------------------------------
 * プログラム識別文字列
 
-	.text
+		.text
+program_start_0:
+		bra.s	skip_id
+		.dc.b	'#HUPAIR',0
 program_id_name:
-	.dc.b	'Graphic Mask'
-	.dc.b	0
+		.dc.b	'Graphic Mask'
+		.dc.b	0
 program_id_version:
-	.dc.b	'0.87'
-	.dc.b	0
-	.quad
+		.dc.b	'0.87 patchlevel ',PATCHLEVEL
+		.dc.b	0
+		.even
+skip_id:
+		bra	program_start
 
-*-------------------------------------------------------------------------------
-* ＧＭのバージョン
-
-GM_VERSION	equ	$0087
 
 *-------------------------------------------------------------------------------
 * タイトルメッセージ
 
 	.data
 message_title:
-	.dc.b	'Graphic Mask version 0.87 programmed by JACK',13,10
-	.dc.b	0
+version_mes:
+	.dc.b	'Graphic Mask version 0.87 patchlevel ',PATCHLEVEL
+version_mes_end:
+	.dc.b	' programmed by JACK, Copyright (C) 2025 TcbnErik.'
+	.dc.b	CRLF,0
+
 
 *-------------------------------------------------------------------------------
 * ベクタ保存領域
 
-	.text
-	.quad
-vector_TPALET:
-	.ds.l	1
-vector_TPALET2:
-	.ds.l	1
-vector_CRTMOD:
-	.ds.l	1
-vector_TGUSEMD:
-	.ds.l	1
-vector_G_CLR_ON:
-	.ds.l	1
-vector_B_KEYSNS:
-	.ds.l	1
-vector_DENSNS:
-	.ds.l	1
-vector_TXXLINE:
-	.ds.l	1
-vector_TXYLINE:
-	.ds.l	1
-vector_TXBOX:
-	.ds.l	1
-vector_B_WPOKE:
-	.ds.l	1
-vector_trap15:
-	.ds.l	1
-vector_EXIT:
-	.ds.l	1
-vector_EXIT2:
-	.ds.l	1
+HOOK:		.macro	adr,vec
+		.dc	(adr-$),(vec.or.$100)	* DOS:$ffxx IOCS:$01xx (割り込み指定不可)
+		.endm
+
+		.text
+		.quad
+
+vector_table_top:
+
+vector_TPALET:		HOOK	NEW_TPALET	,_TPALET
+vector_TPALET2:		HOOK	NEW_TPALET2	,_TPALET2
+vector_CRTMOD:		HOOK	NEW_CRTMOD	,_CRTMOD
+vector_TGUSEMD:		HOOK	NEW_TGUSEMD	,_TGUSEMD
+vector_G_CLR_ON:	HOOK	NEW_G_CLR_ON	,_G_CLR_ON
+vector_B_KEYSNS:	HOOK	NEW_B_KEYSNS	,_B_KEYSNS
+vector_DENSNS:		HOOK	NEW_DENSNS	,_DENSNS
+		.if	0
+vector_TXXLINE:		HOOK	NEW_TXXLINE	,_TXXLINE
+vector_TXYLINE:		HOOK	NEW_TXYLINE	,_TXYLINE
+vector_TXBOX:		HOOK	NEW_TXBOX	,_TXBOX
+vector_B_WPOKE:		HOOK	NEW_B_WPOKE	,_B_WPOKE
+		.endif
+vector_EXIT:		HOOK	NEW_EXIT	,_EXIT
+vector_EXIT2:		HOOK	NEW_EXIT2	,_EXIT2
+vector_KEEPPR:		HOOK	NEW_KEEPPR	,_KEEPPR
+
+			.dc	0	* end of table
+
 
 *-------------------------------------------------------------------------------
 * フラグ領域
 
 	.text
-active_flag:
-	.dc.b	1			* ＧＭ主要機能の動作フラグ 0:停止 0以外:動作
-force_flag:
-	.ds.b	1			* 強制フラグ 0:IOCSに従う 0以外:強制使用する
-gnc_flag:
-	.ds.b	1			* GNCフラグ 0:無効 0以外:有効
-den_mask_flag:
-	.ds.b	1			* 電卓消去時のマスクフラグ 0:無効 0以外:有効
-wpoke_flag:
-	.ds.b	1			* うっしっし（μEmacs用）
-check_force_flag:
-	.ds.b	1			* 不都合解消
-save_force_flag:
-	.ds.b	1			* 不都合解消
-
-mask_set_flag:
-	.ds.b	1			* マスクフラグ 0:マスクなし 0以外:マスクあり
-mask_halt_flag:
-	.ds.b	1
-mask_disable_flag:
-	.ds.b	1
-mask_enable_flag:
-	.ds.b	1
-mask_request_flag:
-	.ds.b	1
 	.even
 
-*-------------------------------------------------------------------------------
-* trap15の処理
+active_flag:
+	.dc.b	$ff			* ＧＭ主要機能の動作フラグ 0:停止 0以外:動作
+force_flag:
+	.dc.b	0			* 強制フラグ 0:IOCSに従う 0以外:強制使用する
+gnc_flag:
+	.dc.b	0			* GNCフラグ 0:無効 0以外:有効
+den_mask_flag:
+	.dc.b	0			* 電卓消去時のマスクフラグ 0:無効 0以外:有効
 
-	.text
-NEW_trap15:
-	cmp.w	#__G_CLR_ON,d0		* グラフィックを消えないように...
-	bne	NEW_trap15_end		* _G_CLR_ONのみフックする
+	.if	0
+wpoke_flag:
+	.dc.b	0			* うっしっし（μEmacs用）
+	.endif
 
-	tst.b	active_flag		* 動作するか？
-	beq	NEW_trap15_end
+check_force_flag:
+	.dc.b	0			* 不都合解消
+save_force_flag:
+	.dc.b	0			* 不都合解消
+gstop_flag:
+	.dc.b	0			* グラフィック使用モード監視 0:無効 0以外:有効
 
-	bsr	crtc_check_16
-	bne	NEW_trap15_end		* 画面モードが違う
-	bra	NEW_trap15_G_CLR_ON
-NEW_trap15_end:
-	move.l	vector_trap15,-(sp)
-	rts
+mask_set_flag:
+	.dc.b	0			* マスクフラグ 0:マスクなし 0以外:マスクあり
+mask_halt_flag:
+	.dc.b	0
+mask_disable_flag:
+	.dc.b	0
+mask_enable_flag:
+	.dc.b	$ff
+mask_request_flag:
+	.dc.b	0
 
-NEW_trap15_G_CLR_ON:
-	clr.b	graphic_data_16_flag
-	bsr	_graphic_color_max
-	bsr	_graphic_line_length
-	bsr	_graphic_window
-	bclr.b	#3,$e80028		* 表示オンにする
-	move.w	#$003f,$e82600
-	rte
+graphic_palette_16_flag:
+	.dc.b	0
+graphic_data_16_flag:
+	.dc.b	0
+
+g_use_flag:
+	.dc.b	0			* 0以外:現プロセスがGVRAMを占有した
+
+	.even
 
 *-------------------------------------------------------------------------------
 * グラフィック画面の最大色－１
 
 	.text
 _graphic_color_max:
-	movem.l	d0-d1,-(sp)
-	moveq.l	#16-1,d0
-	move.b	$093c.w,d1
-	cmp.b	#16,d1
-	bcc	@f
+	PUSH	d0-d1
+	moveq	#16-1,d0
+	move.b	($93c),d1		* _CRTMODの画面モード
+	cmp.b	d0,d1			* cmpi.b #16,d1
+	bhi	@f			* bcc @f
 	ror.b	#4,d1
 	bcc	@f
-	move.w	#256-1,d0
+	st	d0			* move	#256-1,d0
 	rol.b	#2,d1
 	bcc	@f
-	moveq.l	#$ff,d0			* 65536-1
+	moveq	#$ff,d0			* 65536-1
 @@:
-	move.w	d0,$0964.w
-	movem.l	(sp)+,d0-d1
+	move	d0,($964)
+	POP	d0-d1
 	rts
 
 *-------------------------------------------------------------------------------
@@ -178,12 +238,13 @@ _graphic_color_max:
 	.text
 _graphic_line_length:
 	move.l	d0,-(sp)
-	move.l	#$400,d0
-	btst.b	#2,$e80028
+	moveq	#$40,d0			* move.l #$400,d0
+	lsl	#4,d0			*
+	btst	#2,(CRTC_R20h)
 	beq	@f
-	add.l	d0,d0
+	add	d0,d0
 @@:
-	move.l	d0,$0960.w
+	move.l	d0,($960)
 	move.l	(sp)+,d0
 	rts
 
@@ -192,16 +253,14 @@ _graphic_line_length:
 
 	.text
 _graphic_window:
-	clr.w	$0968.w
-	clr.w	$096a.w
-	btst.b	#2,$e80028
+	clr.l	($968)
+	btst	#2,(CRTC_R20h)
 	bne	@f
-	move.w	#512-1,$096c.w
-	move.w	#512-1,$096e.w
+
+	move.l	#(512-1)<<16+(512-1),($96c)
 	rts
 @@:
-	move.w	#768-1,$096c.w
-	move.w	#512-1,$096e.w
+	move.l	#(768-1)<<16+(512-1),($96c)
 	rts
 
 *-------------------------------------------------------------------------------
@@ -213,21 +272,25 @@ _graphic_window:
 
 	.text
 crtc_check_16:
-	cmp.w	#$0c15,$e80028
-	bcc	crtc_check_16_goff
-	cmp.w	#$0415,$e80028
+	move.l	a0,-(sp)
+	lea	(CRTC_R20),a0
+
+	cmpi	#$0c15,(a0)
+	bhi	crtc_check_16_goff
 	beq	crtc_check_16_end
-	cmp.w	#$0416,$e80028
+	cmpi	#$0415,(a0)
 	beq	crtc_check_16_end
-	cmp.w	#$041a,$e80028
+	cmpi	#$0416,(a0)
+	beq	crtc_check_16_end
+	cmpi	#$041a,(a0)
 crtc_check_16_end:
+	movea.l	(sp)+,a0
 	rts
 
 crtc_check_16_goff:
+	cmpi	#$0c16,(a0)
 	beq	crtc_check_16_end
-	cmp.w	#$0c16,$e80028
-	beq	crtc_check_16_end
-	cmp.w	#$0c1a,$e80028
+	cmpi	#$0c1a,(a0)
 	bra	crtc_check_16_end
 
 *-------------------------------------------------------------------------------
@@ -235,41 +298,50 @@ crtc_check_16_goff:
 
 	.text
 NEW_EXIT:
-	bsr	exit_mask_check
-	bsr	crtc_check_16
-	bne	NEW_EXIT_end
-	bsr	graphic_data_16_check		* ちぇっく、ちぇ～っく(^^;
-NEW_EXIT_end:
-	move.l	vector_EXIT,-(sp)
-	rts
+	move.l	(vector_EXIT,pc),-(sp)
+	bra	NEW_EXIT_check
 
 *-------------------------------------------------------------------------------
 * _EXIT2の処理
 
 	.text
 NEW_EXIT2:
+	move.l	(vector_EXIT2,pc),-(sp)
+NEW_EXIT_check:
+**	move.l	a0,-(sp)
+	lea	(g_use_flag,pc),a0
+	clr.b	(a0)
+**	movea.l	(sp)+,a0
+
 	bsr	exit_mask_check
 	bsr	crtc_check_16
-	bne	NEW_EXIT2_end
-	bsr	graphic_data_16_check
-NEW_EXIT2_end:
-	move.l	vector_EXIT2,-(sp)
+	beq	graphic_data_16_check		* ちぇっく、ちぇ～っく(^^;
+*NEW_EXIT_end:
 	rts
+
+*-------------------------------------------------------------------------------
+* _KEEPPRの処理
+
+	.text
+NEW_KEEPPR:
+	move.l	(vector_KEEPPR,pc),-(sp)
+	bra	NEW_EXIT_check
 
 *-------------------------------------------------------------------------------
 * 不都合を取る
 
 	.text
 exit_mask_check:
-	tst.b	mask_set_flag
+	move.b	(mask_set_flag,pc),-(sp)
+	addq.l	#2,sp
 	beq	exit_mask_check_end
 
-	tst.w	$e60000
-	bne	exit_mask_check_end
-
-	bsr	mask_sub
+	tst	(TVRAM_P3)
+	beq	mask_sub
 exit_mask_check_end:
 	rts
+
+	.if	0
 
 *-------------------------------------------------------------------------------
 * _TXXLINE, _TXYLINE用のオフセット表
@@ -288,72 +360,70 @@ txline_work_size:
 
 	.text
 NEW_TXXLINE:
-	tst.b	active_flag
+	move.b	(active_flag,pc),d0
+	and.b	(mask_set_flag,pc),d0
 	beq	NEW_TXXLINE_end
 
-	tst.b	mask_set_flag
-	beq	NEW_TXXLINE_end
-	cmp.w	#2,vram_page(a1)	* テキストプレーン２かな？
+	cmpi	#2,vram_page(a1)	* テキストプレーン２かな？
 	bne	NEW_TXXLINE_end
-	tst.w	line_length(a1)
+	tst	line_length(a1)
 	beq	NEW_TXXLINE_end		* 長さ０？
 
-	cmp.w	#512,line_y(a1)
+	cmpi	#512,line_y(a1)
 	bcc	NEW_TXXLINE_end		* Ｙ座標 512 以上はマスクがない
 
-	tst.w	line_style(a1)		* クリア？
-	seq.b	d0
-	ext.w	d0
+	tst	line_style(a1)		* クリア？
+	seq	d0
+	ext	d0
 
 txxline_mask_register	reg	a1-a4
-	movem.l	txxline_mask_register,-(sp)
+	PUSH	txxline_mask_register
 	lea	-txline_work_size(sp),sp	* ワークエリアを得る
 	lea	(sp),a2
 	exg.l	a1,a2
 
-	lea	$e8002a,a3
-	move.w	(a3),-(sp)
+	lea	(CRTC_R21),a3
+	move	(a3),-(sp)
 	clr.b	(a3)
-	move.l	vector_TXXLINE,a4
-	move.w	#3,(a1)				* vram_page
-	move.w	line_y(a2),line_y(a1)
-	move.w	d0,line_style(a1)
+	movea.l	(vector_TXXLINE,pc),a4
+	move	#3,(a1)				* vram_page
+	move	line_y(a2),line_y(a1)
+	move	d0,line_style(a1)
 
-	move.w	line_x(a2),d0
-	cmp.w	#128,d0
+	move	line_x(a2),d0
+	cmpi	#128,d0
 	bcc	NEW_TXXLINE_clear_right
 
 NEW_TXXLINE_clear_left:
-	move.w	d0,line_x(a1)
-	add.w	line_length(a2),d0
-	cmp.w	#128,d0
+	move	d0,line_x(a1)
+	add	line_length(a2),d0
+	cmpi	#128,d0
 	bcs	@f
-	move.w	#127,d0
+	moveq	#127,d0
 @@:
-	sub.w	line_x(a1),d0
-	addq.w	#1,d0
-	move.w	d0,line_length(a1)
+	sub	line_x(a1),d0
+	addq	#1,d0
+	move	d0,line_length(a1)
 	jsr	(a4)
 
 NEW_TXXLINE_clear_right:
-	move.w	line_x(a2),d0
-	add.w	line_length(a2),d0
-	cmp.w	#640,d0
+	move	line_x(a2),d0
+	add	line_length(a2),d0
+	cmpi	#640,d0
 	bcs	NEW_TXXLINE_clear_end
 
-	move.w	#640,line_x(a1)
-	sub.w	#640,d0
-	addq.w	#1,d0
-	move.w	d0,line_length(a1)
+	move	#640,line_x(a1)
+	sub	#640-1,d0
+	move	d0,line_length(a1)
 	jsr	(a4)
 
 NEW_TXXLINE_clear_end:
-	move.w	(sp)+,(a3)
+	move	(sp)+,(a3)
 
 	lea	txline_work_size(sp),sp		* ワークエリアを戻す
-	movem.l	(sp)+,txxline_mask_register
+	POP	txxline_mask_register
 NEW_TXXLINE_end:
-	move.l	vector_TXXLINE,-(sp)
+	move.l	(vector_TXXLINE,pc),-(sp)
 	rts
 
 *-------------------------------------------------------------------------------
@@ -361,55 +431,54 @@ NEW_TXXLINE_end:
 
 	.text
 NEW_TXYLINE:
-	tst.b	active_flag
+	move.b	(active_flag,pc),d0
+	and.b	(mask_set_flag,pc),d0
 	beq	NEW_TXYLINE_end
 
-	tst.b	mask_set_flag
-	beq	NEW_TXYLINE_end
-	cmp.w	#2,(a1)			* テキストプレーン２かな？
+	cmpi	#2,(a1)			* テキストプレーン２かな？
 	bne	NEW_TXYLINE_end
-	tst.w	line_length(a1)
+	tst	line_length(a1)
 	beq	NEW_TXYLINE_end		* 長さ０？
 
-	clr.l	d0
-	cmp.w	#512,line_y(a1)
+	moveq	#0,d0
+	cmpi	#512,line_y(a1)
 	bcc	NEW_TXYLINE_end		* Ｙ座標 512 以上はマスクがない
-	move.w	line_x(a1),d0
-	cmp.w	#768,d0
+	move	line_x(a1),d0
+	cmpi	#768,d0
 	bcc	NEW_TXYLINE_end		* Ｘ座標 768 以上は論外
-	cmp.w	#640,d0
+	cmpi	#640,d0
 	bcc	NEW_TXYLINE_mask
-	cmp.w	#128,d0
+	cmpi	#128,d0
 	bcc	NEW_TXYLINE_end		* Ｘ座標 128 ～ 639 はマスクがない
 NEW_TXYLINE_mask:
 txyline_mask_register	reg	d1-d5/a1
 
-	movem.l	txyline_mask_register,-(sp)
-	moveq.l	#%111,d1
+	PUSH	txyline_mask_register
+	moveq	#%111,d1
 	and.b	d0,d1
 	lsr.l	#3,d0			* Ｘ座標 -> アドレス
-	lea	TEXTVRAM_P3_ADDRESS,a0
-	add.l	d0,a0
-	move.w	line_y(a1),d0
+	lea	(TVRAM_P3),a0
+	adda.l	d0,a0
+	move	line_y(a1),d0
 	lsl.l	#7,d0			* Ｙ座標 -> アドレス
-	add.l	d0,a0
+	adda.l	d0,a0
 
 	neg.b	d1
 	addq.b	#7,d1			* ビット列を反転させる
-	st.b	d2
-	bclr.l	d1,d2			* d2.b = マスクパターン
+	st	d2
+	bclr	d1,d2			* d2.b = マスクパターン
 	move.b	d2,d5
-	tst.w	line_style(a1)		* クリア？
+	tst	line_style(a1)		* クリア？
 	bne	NEW_TXYLINE_mask_clear
 NEW_TXYLINE_mask_set:
-	bset.l	d1,d2
+	bset	d1,d2
 NEW_TXYLINE_mask_clear:
-	move.w	line_length(a1),d0
-	subq.w	#1,d0
-	lea	$e8002a,a1
-	move.w	(a1),-(sp)
+	move	line_length(a1),d0
+	subq	#1,d0
+	lea	(CRTC_R21),a1
+	move	(a1),-(sp)
 	clr.b	(a1)
-	move.w	#$0080,d1
+	move	#$0080,d1
 	move.l	#-$20000,d3
 NEW_TXYLINE_mask_loop:
 	move.b	(a0,d3.l),d4
@@ -417,12 +486,12 @@ NEW_TXYLINE_mask_loop:
 	not.b	d4
 	and.b	d2,d4
 	move.b	d4,(a0)
-	add.w	d1,a0
+	adda	d1,a0
 	dbra	d0,NEW_TXYLINE_mask_loop
-	move.w	(sp)+,(a1)
-	movem.l	(sp)+,txyline_mask_register
+	move	(sp)+,(a1)
+	POP	txyline_mask_register
 NEW_TXYLINE_end:
-	move.l	vector_TXYLINE,-(sp)
+	move.l	(vector_TXYLINE,pc),-(sp)
 	rts
 
 *-------------------------------------------------------------------------------
@@ -430,65 +499,66 @@ NEW_TXYLINE_end:
 
 	.text
 NEW_TXBOX:
-	tst.b	active_flag
+	move.b	(active_flag,pc),d0
+	and.b	(mask_set_flag,pc),d0
 	beq	NEW_TXBOX_end
 
-	tst.b	mask_set_flag
-	beq	NEW_TXBOX_end
-	cmp.w	#2,(a1)			* テキストプレーン２かな？
+	cmpi	#2,(a1)			* テキストプレーン２かな？
 	bne	NEW_TXBOX_end
 
-	tst.w	line_style(a1)		* クリア？
-	seq.b	d0
-	ext.w	d0
+	tst	line_style(a1)		* クリア？
+	seq	d0
+	ext	d0
 
 txbox_mask_register	reg	a1-a3
-	movem.l	txbox_mask_register,-(sp)
+	PUSH	txbox_mask_register
 	lea	-2*6(sp),sp			* ワークエリアを得る
 	lea	(sp),a2
 	exg.l	a1,a2
 
-	lea	$e8002a,a3
-	move.w	(a3),-(sp)
+	lea	(CRTC_R21),a3
+	move	(a3),-(sp)
 	clr.b	(a3)
-	move.w	#3,(a1)+
+	move	#3,(a1)+
 	addq.l	#2,a2
 	move.l	(a2)+,(a1)+
 	move.l	(a2)+,(a1)+
-	move.w	d0,(a1)+
+	move	d0,(a1)+
 	lea	(sp),a1
-	move.l	vector_TXBOX,a0
+	movea.l	(vector_TXBOX,pc),a0
 	jsr	(a0)
-	move.w	(sp)+,(a3)
+	move	(sp)+,(a3)
 
 	lea	2*6(sp),sp			* ワークエリアを戻す
-	movem.l	(sp)+,txbox_mask_register
+	POP	txbox_mask_register
 NEW_TXBOX_end:
-	move.l	vector_TXBOX,-(sp)
+	move.l	(vector_TXBOX,pc),-(sp)
 	rts
+
+	.endif
 
 *-------------------------------------------------------------------------------
 * _B_KEYSNSの処理
 
 	.text
 NEW_B_KEYSNS:
-	tst.b	active_flag
+	move.b	(active_flag,pc),d0
 	beq	NEW_B_KEYSNS_end
 
-	tst.b	mask_set_flag
+	move.b	(mask_set_flag,pc),d0
 	beq	NEW_B_KEYSNS_no_mask
-	tst.b	$e88001
+
+	tst.b	(MFP_GPIP)
 	bpl	NEW_B_KEYSNS_no_mask
-	tst.w	$e60000
+	tst	(TVRAM_P3)
 	bne	NEW_B_KEYSNS_no_mask
 	bsr	mask_sub
 NEW_B_KEYSNS_no_mask:
-	move.l	vector_B_KEYSNS,a0
-	bsr	dentaku_mask		* 電卓マスクに対応したルーチン
-	rts
+	movea.l	(vector_B_KEYSNS,pc),a0
+	bra	dentaku_mask		* 電卓マスクに対応したルーチン
 
 NEW_B_KEYSNS_end:
-	move.l	vector_B_KEYSNS,-(sp)
+	move.l	(vector_B_KEYSNS,pc),-(sp)
 	rts
 
 *-------------------------------------------------------------------------------
@@ -496,15 +566,15 @@ NEW_B_KEYSNS_end:
 
 	.text
 NEW_DENSNS:
-	tst.b	active_flag
+	move.b	(active_flag,pc),-(sp)
+	addq.l	#2,sp
 	beq	NEW_DENSNS_end
 
-	move.l	vector_DENSNS,a0
-	bsr	dentaku_mask
-	rts
+	movea.l	(vector_DENSNS,pc),a0
+	bra	dentaku_mask
 
 NEW_DENSNS_end:
-	move.l	vector_DENSNS,-(sp)
+	move.l	(vector_DENSNS,pc),-(sp)
 	rts
 
 *-------------------------------------------------------------------------------
@@ -523,86 +593,90 @@ DEN_MODE	equ	$0bc7		* 電卓のモード		0:DEC   1:HEX
 dentaku_mask_register	reg	d0-d5/a0-a1
 
 	.text
+dentaku_mask_off:
+	jmp	(a0)			* 表示なし、または使用しない
+
 dentaku_mask:
-	tst.b	den_mask_flag
+	move.b	(den_mask_flag,pc),-(sp)
+	addq.l	#2,sp
 	beq	dentaku_mask_off
-	tst.b	(DEN_PRINT).w
+
+	tst.b	(DEN_PRINT)
 	beq	dentaku_mask_off
 	jsr	(a0)
-	tst.b	(DEN_PRINT).w
+	tst.b	(DEN_PRINT)
 	bne	dentaku_mask_end	* 電卓表示中
 
-	tst.b	mask_set_flag
+	move.b	(mask_set_flag,pc),-(sp)
+	addq.l	#2,sp
 	beq	dentaku_mask_end	* マスクされていない
-	cmp.w	#(COLOR<<11)+(COLOR<<6)+(COLOR<<1)+1,TEXTPALETTE_ADDRESS+2*8
+
+	cmpi	#(COLOR<<11)+(COLOR<<6)+(COLOR<<1)+1,(TPALET+2*8)
 	bne	dentaku_mask_end	* 表示カラーが違う
 
-	cmp.w	#512,(DEN_YPOS).w
+	cmpi	#512,(DEN_YPOS)
 	bcc	dentaku_mask_end	* Ｙ座標 512 以上はマスクがない
-	cmp.w	#768,(DEN_XPOS).w
+	cmpi	#768,(DEN_XPOS)
 	bcc	dentaku_mask_end	* Ｘ座標 768 以上はマスクがない
-	cmp.w	#640-(DEN_XSIZE*8)+1,(DEN_XPOS).w
+	cmpi	#640-(DEN_XSIZE*8)+1,(DEN_XPOS)
 	bcc	dentaku_mask_right	* Ｘ座標 640 からマスクがある
-	cmp.w	#128,(DEN_XPOS).w
+	cmpi	#128,(DEN_XPOS)
 	bcc	dentaku_mask_end	* Ｘ座標 128 ～ 639 はマスクがない
 
 dentaku_mask_left:
-	movem.l	dentaku_mask_register,-(sp)
-	clr.l	d0
-	move.w	(DEN_YPOS).w,d0
+	PUSH	dentaku_mask_register
+	moveq	#0,d0
+	move	(DEN_YPOS),d0
 	lsl.l	#7,d0			* Ｙ座標 -> アドレス
-	lea	TEXTVRAM_P3_ADDRESS,a0
-	add.l	d0,a0
+	lea	(TVRAM_P3),a0
+	adda.l	d0,a0
 	bra	dentaku_mask_paint
 
 dentaku_mask_right:
-	movem.l	dentaku_mask_register,-(sp)
-	clr.l	d0
-	move.w	(DEN_YPOS).w,d0
+	PUSH	dentaku_mask_register
+	moveq	#0,d0
+	move	(DEN_YPOS),d0
 	lsl.l	#7,d0			* Ｙ座標 -> アドレス
-	lea	TEXTVRAM_P3_ADDRESS,a0
-	add.l	d0,a0
-	lea	$50(a0),a0		* Ｘ座標 640 から
+	lea	(TVRAM_P3),a0
+	lea	(80,a0,d0.l),a0		* Ｘ座標 640 から
 
 dentaku_mask_paint:
-	moveq.l	#$ff,d1
+	moveq	#-1,d1
 	move.l	d1,d2
 	move.l	d1,d3
 	move.l	d1,d4
-	move.w	#$0080,d5
-	move.w	#16-1,d0
+	move	#$80,d5
+	move	#16-1,d0
 
-	lea	$e8002a,a1
-	move.w	(a1),-(sp)
+	lea	(CRTC_R21),a1
+	move	(a1),-(sp)
 	clr.b	(a1)
 dentaku_mask_paint_loop:
 	movem.l	d1-d4,(a0)		* テキストプレーン塗りつぶし
-	add.w	d5,a0
+	adda	d5,a0
 	dbra	d0,dentaku_mask_paint_loop
-	move.w	(sp)+,(a1)
-	movem.l	(sp)+,dentaku_mask_register
+	move	(sp)+,(a1)
+	POP	dentaku_mask_register
 dentaku_mask_end:
 	rts
 
-dentaku_mask_off:
-	jsr	(a0)			* 表示なし、または使用しない
-	rts
+	.if	0
 
 *-------------------------------------------------------------------------------
 * _B_WPOKEの処理
 
 	.text
 NEW_B_WPOKE:
-	tst.b	active_flag
+	move.b	(active_flag,pc),d0
+	and.b	(mask_set_flag,pc),d0
 	beq	NEW_B_WPOKE_end
 
-	tst.b	mask_set_flag
-	beq	NEW_B_WPOKE_end
-	cmp.l	#$e82200,a1
+	cmpa.l	#TPALET,a1
 	bne	NEW_B_WPOKE_end
 
-	st.b	wpoke_flag
-	move.l	vector_B_WPOKE,a0
+	lea	(wpoke_flag,pc),a0
+	st	(a0)
+	movea.l	(vector_B_WPOKE,pc),a0
 	lea	2*8(a1),a1
 	move.l	d1,-(sp)
 	bne	@f
@@ -612,8 +686,10 @@ NEW_B_WPOKE:
 	move.l	(sp)+,d1
 	lea	-2*9(a1),a1
 NEW_B_WPOKE_end:
-	move.l	vector_B_WPOKE,-(sp)
+	move.l	(vector_B_WPOKE,pc),-(sp)
 	rts
+
+	.endif
 
 *-------------------------------------------------------------------------------
 * _TPALET2の処理
@@ -622,73 +698,79 @@ tpalet2_register	reg	d1-d2/a1
 
 	.text
 NEW_TPALET2:
-	tst.b	active_flag
+	move.b	(active_flag,pc),d0
+	and.b	(mask_set_flag,pc),d0
 	beq	NEW_TPALET2_end
 
-	tst.b	mask_set_flag
-	beq	NEW_TPALET2_end
-	tst.b	wpoke_flag
+	.if	0
+	move.b	(wpoke_flag,pc),d0
 	bne	NEW_TPALET2_wpoke
+	.endif
+
 	tst.l	d2
 	bmi	NEW_TPALET2_end
 
-NEW_TPALET2_set:
-	cmp.b	#16,d1
+*NEW_TPALET2_set:
+*	cmpi.b	#16,d1
+*	bcc	NEW_TPALET2_end
+	cmpi.b	#12,d1
 	bcc	NEW_TPALET2_end
-	cmp.b	#12,d1
-	bcc	NEW_TPALET2_end
-	cmp.b	#9,d1
+	cmpi.b	#9,d1
 	bcc	NEW_TPALET2_set_9
-	cmp.b	#8,d1
+	cmpi.b	#8,d1
 	beq	NEW_TPALET2_set_0
-	cmp.b	#4,d1
+	cmpi.b	#4,d1
 	bcc	NEW_TPALET2_end
-	cmp.b	#0,d1
+	tst.b	d1
 	beq	NEW_TPALET2_set_0
 
-	movem.l	tpalet2_register,-(sp)
+	PUSH	tpalet2_register
 NEW_TPALET2_set_9_sub:
-	move.l	vector_TPALET2,a1
+	movea.l	(vector_TPALET2,pc),a1
 	jsr	(a1)
-	bset.l	#3,d1
+	bset	#3,d1
 NEW_TPALET2_set_0_sub:
 	jsr	(a1)
-	movem.l	(sp)+,tpalet2_register
+	POP	tpalet2_register
 	rts
 
 NEW_TPALET2_set_9:
-	movem.l	tpalet2_register,-(sp)
-	bclr.l	#3,d1
-	moveq.l	#-1,d2
+	PUSH	tpalet2_register
+	bclr	#3,d1
+	moveq	#-1,d2
 	bra	NEW_TPALET2_set_9_sub
 
 NEW_TPALET2_set_0:
-	movem.l	tpalet2_register,-(sp)
-	move.l	vector_TPALET2,a1
-	btst.l	#3,d1
+	PUSH	tpalet2_register
+	movea.l	(vector_TPALET2,pc),a1
+	btst	#3,d1
 	bne	@f
 	jsr	(a1)
-	bset.l	#3,d1
+	bset	#3,d1
 @@:
 	move.l	#(COLOR<<11)+(COLOR<<6)+(COLOR<<1)+1,d2
 	bra	NEW_TPALET2_set_0_sub
 
+	.if	0
 NEW_TPALET2_wpoke:
-	clr.b	wpoke_flag
+	lea	(wpoke_flag,pc),a0
+	clr.b	(a0)
 	tst.l	d1
 	bne	NEW_TPALET2_end
 	tst.l	d2
 	bmi	NEW_TPALET2_end
 
-	move.l	vector_TPALET2,a0
-	moveq.l	#8,d1
+	movea.l	(vector_TPALET2,pc),a0
+	moveq	#8,d1
 	move.l	d2,-(sp)
 	move.l	#(COLOR<<11)+(COLOR<<6)+(COLOR<<1)+1,d2
 	jsr	(a0)
 	move.l	(sp)+,d2
-	clr.l	d1
+	moveq	#0,d1
+	.endif
+
 NEW_TPALET2_end:
-	move.l	vector_TPALET2,-(sp)
+	move.l	(vector_TPALET2,pc),-(sp)
 	rts
 
 *-------------------------------------------------------------------------------
@@ -697,171 +779,163 @@ NEW_TPALET2_end:
 tpalet_register	reg	d1-d2/a1
 
 	.text
+
 NEW_TPALET:
-	tst.b	active_flag
+	move.b	(active_flag,pc),d0
+	and.b	(mask_set_flag,pc),d0
 	beq	NEW_TPALET_end
 
-	tst.b	mask_set_flag
-	beq	NEW_TPALET_end
-	cmp.l	#-2,d2
-	beq	NEW_TPALET_initialize
-	cmp.l	#-1,d2
-	beq	NEW_TPALET_get
-	bra	NEW_TPALET_set
-NEW_TPALET_end:
-	move.l	vector_TPALET,-(sp)
-	rts
+	moveq	#-2,d0
+	cmp.l	d0,d2
+	beq	NEW_TPALET_initialize	* -2:初期化
+	bcs	NEW_TPALET_set
+	bra	NEW_TPALET_get		* -1:収得
 
 NEW_TPALET_get:
-	cmp.b	#16,d1
+	cmpi.b	#16,d1
 	bcc	NEW_TPALET_end
-	cmp.b	#8,d1
+	cmpi.b	#8,d1
 	bcs	NEW_TPALET_end		* パレット８～１５以外はもとのルーチンに行く
 
-	movem.l	tpalet_register,-(sp)
-	move.l	vector_TPALET2,a1	* IOCS _TAPLET2 を直接コール
-	moveq.l	#15,d1
-	moveq.l	#-1,d2
+	PUSH	tpalet_register
+	movea.l	(vector_TPALET2,pc),a1	* IOCS _TAPLET2 を直接コール
+	moveq	#15,d1
+	moveq	#-1,d2
 	jsr	(a1)
-	movem.l	(sp)+,tpalet_register
+	POP	tpalet_register
+	rts
+
+NEW_TPALET_end:
+	move.l	(vector_TPALET,pc),-(sp)
 	rts
 
 NEW_TPALET_set:
-	cmp.b	#16,d1
+	cmpi.b	#16,d1
 	bcc	NEW_TPALET_end
-	cmp.b	#8,d1
+	cmpi.b	#8,d1
 	bcc	NEW_TPALET_set_8
-	cmp.b	#4,d1
+	cmpi.b	#4,d1
 	bcc	NEW_TPALET_end
-	cmp.b	#0,d1
+	tst.b	d1
 	beq	NEW_TPALET_set_0
 
-	movem.l	tpalet_register,-(sp)
-	move.l	vector_TPALET2,a1
+	PUSH	tpalet_register
+	movea.l	(vector_TPALET2,pc),a1
 	jsr	(a1)
-	bset.l	#3,d1
+	bset	#3,d1
 	jsr	(a1)
-	movem.l	(sp)+,tpalet_register
-	rts
-
-NEW_TPALET_set_0:
-	movem.l	tpalet_register,-(sp)
-	move.l	vector_TPALET2,a1
-	bsr	NEW_TPALET_initialize_0_sub
-	movem.l	(sp)+,tpalet_register
-	rts
-
-NEW_TPALET_set_8:
-	movem.l	tpalet_register,-(sp)
-	move.l	vector_TPALET2,a1
-	bsr	NEW_TPALET_initialize_8_sub
-	movem.l	(sp)+,tpalet_register
+	POP	tpalet_register
 	rts
 
 NEW_TPALET_initialize:
-	cmp.b	#16,d1
+	cmpi.b	#16,d1
 	bcc	NEW_TPALET_end
-	cmp.b	#8,d1
+	cmpi.b	#8,d1
 	bcc	NEW_TPALET_initialize_8
-	cmp.b	#4,d1
+	cmpi.b	#4,d1
 	bcc	NEW_TPALET_end
-	cmp.b	#0,d1
+	tst.b	d1
 	beq	NEW_TPALET_initialize_0
 
-	movem.l	tpalet_register,-(sp)
-	lea	$ed002e,a0
+	PUSH	tpalet_register
+	lea	(SRAM_TPAL0),a0
 	move.b	d1,d0
-	ext.w	d0
-	add.w	d0,d0
-	move.w	(a0,d0.w),d2
-	move.l	vector_TPALET2,a1
+	ext	d0
+	add	d0,d0
+	move	(a0,d0.w),d2
+	movea.l	(vector_TPALET2,pc),a1
 	jsr	(a1)
-	bset.l	#3,d1
+	bset	#3,d1
 	jsr	(a1)
-	movem.l	(sp)+,tpalet_register
+	POP	tpalet_register
 	rts
 
+NEW_TPALET_set_0:
+	PUSH	tpalet_register
+	bra	@f
+
 NEW_TPALET_initialize_0:
-	movem.l	tpalet_register,-(sp)
-	move.l	vector_TPALET2,a1
-	move.w	$ed002e,d2
+	PUSH	tpalet_register
+	move	(SRAM_TPAL0),d2
+@@:
+	movea.l	(vector_TPALET2,pc),a1
 	bsr	NEW_TPALET_initialize_0_sub
-	movem.l	(sp)+,tpalet_register
+	POP	tpalet_register
 	rts
 
 NEW_TPALET_initialize_0_sub:
 	jsr	(a1)
 	move.l	#(COLOR<<11)+(COLOR<<6)+(COLOR<<1)+1,d2
-	moveq.l	#8,d1
-	jsr	(a1)
-	rts
+	moveq	#8,d1
+	jmp	(a1)
+
+NEW_TPALET_set_8:
+	PUSH	tpalet_register
+	bra	@f
 
 NEW_TPALET_initialize_8:
-	movem.l	tpalet_register,-(sp)
-	move.l	vector_TPALET2,a1
-	move.w	$ed0038,d2
+	PUSH	tpalet_register
+	move	(SRAM_TPAL8),d2
+@@:
+	movea.l	(vector_TPALET2,pc),a1
 	bsr	NEW_TPALET_initialize_8_sub
-	movem.l	(sp)+,tpalet_register
+	POP	tpalet_register
 	rts
 
 NEW_TPALET_initialize_8_sub:
-	moveq.l	#15,d1
+	moveq	#15,d1
 	jsr	(a1)
-	subq.w	#1,d1
+	.rept	3
+	subq	#1,d1
 	jsr	(a1)
-	subq.w	#1,d1
-	jsr	(a1)
-	subq.w	#1,d1
-	jsr	(a1)
-	moveq.l	#3,d1
+	.endm
+
+	.irp	pal,3,2,1
+	moveq	#pal,d1
 	bsr	NEW_TPALET_set_sub
-	moveq.l	#2,d1
-	bsr	NEW_TPALET_set_sub
-	moveq.l	#1,d1
-	bsr	NEW_TPALET_set_sub
+	.endm
+
 	move.l	#(COLOR<<11)+(COLOR<<6)+(COLOR<<1)+1,d2
-	moveq.l	#8,d1
-	jsr	(a1)
-	rts
+	moveq	#8,d1
+	jmp	(a1)
 
 NEW_TPALET_set_sub:
-	moveq.l	#-1,d2
+	moveq	#-1,d2
 	jsr	(a1)
-	move.w	d0,d2
-	bset.l	#3,d1
-	jsr	(a1)
-	rts
+	move	d0,d2
+	bset	#3,d1
+	jmp	(a1)
 
 *-------------------------------------------------------------------------------
 * _CRTMODの処理
 
 	.text
 NEW_CRTMOD:
-	tst.b	active_flag
+	move.b	(active_flag,pc),d0
 	beq	NEW_CRTMOD_end
 
-	cmp.w	#-1,d1
+	lea	(graphic_data_16_flag,pc),a0
+	cmpi	#-1,d1
 	beq	@f
-	clr.b	graphic_data_16_flag
+
+	clr.b	(a0)
 @@:
 	bsr	crtc_check_16
 	beq	NEW_CRTMOD_16
 
-	cmp.w	#$0110,d1
+	cmpi	#$0110,d1
 	beq	@f
-	clr.b	save_force_flag
+
+	clr.b	(save_force_flag-graphic_data_16_flag,a0)
 @@:
-	cmp.w	#-1,d1
-	beq	NEW_CRTMOD_end
-	cmp.b	#17,d1
-	bcc	NEW_CRTMOD_end
-	cmp.b	#16,d1
+	cmpi.b	#16,d1
 	beq	NEW_CRTMOD_mask_check
-	cmp.b	#12,d1
+	bhi	NEW_CRTMOD_end
+	cmpi.b	#12,d1
 	bcc	NEW_CRTMOD_mask_halt
-	cmp.b	#8,d1
+	cmpi.b	#8,d1
 	beq	NEW_CRTMOD_gx
-	cmp.w	#4,d1
+	cmpi.b	#4,d1
 	beq	NEW_CRTMOD_tone_fixed
 
 NEW_CRTMOD_clear:
@@ -873,20 +947,22 @@ NEW_CRTMOD_clear:
 	bsr	graphic_scroll_register_clear
 NEW_CRTMOD_initialize:
 NEW_CRTMOD_end:
-	move.l	vector_CRTMOD,-(sp)
+NEW_CRTMOD_16_end:
+	move.l	(vector_CRTMOD,pc),-(sp)
 	rts
 
 NEW_CRTMOD_gx:
-	move.w	$e82600,d0
-	and.w	#$00ff,d0
-	move.w	d0,$e82600
+*	move	(VC_R2),d0
+*	andi	#$ff,d0
+*	move	d0,(VC_R2)
+	clr.b	(VC_R2h)
 	bra	NEW_CRTMOD_clear
 
 NEW_CRTMOD_tone_fixed:
-	cmp.w	#$1900,$e82600
+	cmpi	#$1900,(VC_R2)
 	bne	NEW_CRTMOD_clear
 	bsr	NEW_CRTMOD_clear
-	or.w	#$1900,$e82600
+	ori	#$1900,(VC_R2)
 	rts
 
 NEW_CRTMOD_mask_64k:			* 明らかに６４Ｋぷにモードのとき
@@ -895,72 +971,73 @@ NEW_CRTMOD_mask_64k:			* 明らかに６４Ｋぷにモードのとき
 	beq	NEW_CRTMOD_mask_gnc_off
 
 	bsr	NEW_CRTMOD_tone_save
-	move.w	d0,-(sp)
+	move	d0,-(sp)
 	bsr	NEW_CRTMOD_mask_64k_mode_change
-	move.w	(sp)+,d0
+	move	(sp)+,d0
 	bsr	NEW_CRTMOD_mask_graphic_not_clear
 
-	bsr	tram_check_mask
-	clr.b	mask_halt_flag
-	clr.b	mask_request_flag
-	rts
+	bra	NEW_CRTMOD_clear_half_req_flag
 
 NEW_CRTMOD_tone_save:
-	move.w	#$1900,d0
-	cmp.w	#$0316,$e80028
+	move	#$1900,d0
+	cmpi	#$0316,(CRTC_R20)
 	bne	@f
-	move.w	$e82600,d0
+	move	(VC_R2),d0
 @@:
 	move.b	#$1f,d0
 	rts
 
 NEW_CRTMOD_mask_64k_mode_change:
 	move.l	d1,-(sp)
-	move.w	#$0b16,d1		* モード保存で切り替えする
-	moveq.l	#$1f,d0
-	and.w	$e82600,d0
+	move	#$0b16,d1		* モード保存で切り替えする
+	moveq	#$1f,d0
+	and	(VC_R2),d0
 	beq	@f			* グラフィックは消えています
-	move.w	#$0316,d1
+	move	#$0316,d1
 @@:
 	bsr	NEW_CRTMOD_screen_change
 	move.l	(sp)+,d1
-	bsr	NEW_CRTMOD_screen_initialize
-	rts
+	bra	NEW_CRTMOD_screen_initialize
 
 NEW_CRTMOD_mask_gnc_off:
 	bsr	NEW_CRTMOD_initialize
-	bsr	tram_check_clear	* 不必要なマスクを外す（普通のモード変更）
-	clr.b	mask_halt_flag
-	clr.b	mask_request_flag
+NEW_CRTMOD_clear_half_req_flag:
+	bsr	tram_check_mask
+	lea	(mask_halt_flag,pc),a0
+	clr.b	(a0)
+	clr.b	(mask_request_flag-mask_halt_flag,a0)
 	rts
 
+;mode 16:768x512/16色への変更
 NEW_CRTMOD_mask_check:			* 不都合解消ルーチン(^^;
-	cmp.w	#$001f,$e82600
+	cmpi	#$001f,(VC_R2)
 	beq	@f
-	clr.b	save_force_flag
+
+	lea	(save_force_flag,pc),a0
+	clr.b	(a0)
 @@:
-	btst.l	#8,d1
+	btst	#8,d1
 	beq	NEW_CRTMOD_mask_check_flag
-	cmp.b	#$04,$e80028
+	cmpi.b	#$04,(CRTC_R20h)
 	bne	NEW_CRTMOD_mask_check_flag
-	cmp.b	#$03,$e82401
-	beq	NEW_CRTMOD_clear
+	cmpi	#3,(VC_R0)
+	beq	NEW_CRTMOD_clear		;実画面1024x1024の64K色だった
 
 NEW_CRTMOD_mask_check_flag:
-	tst.b	mask_disable_flag
+	move.b	(mask_disable_flag,pc),d0
 	bne	NEW_CRTMOD_mask_disable
-	tst.b	mask_enable_flag
+	move.b	(mask_enable_flag,pc),d0
 	beq	NEW_CRTMOD_mask_enable
 
-	tst.b	mask_request_flag
+	move.b	(mask_request_flag,pc),d0
 	bne	NEW_CRTMOD_mask_64k
-	tst.b	mask_halt_flag
+	move.b	(mask_halt_flag,pc),d0
 	bne	NEW_CRTMOD_mask_set_check
 
-	moveq.l	#$1f,d0
-	and.w	$e82600,d0
+	moveq	#$1f,d0
+	and	(VC_R2),d0
 	beq	NEW_CRTMOD_clear	* グラフィックは消えています
-	cmp.w	#$0010,d0
+	cmpi	#$0010,d0
 	beq	NEW_CRTMOD_clear
 
 	bsr	gpalette_zero_check	* 特殊な例だな
@@ -972,22 +1049,25 @@ NEW_CRTMOD_mask_check_flag:
 	beq	NEW_CRTMOD_mask_64k	* ６４Ｋのパレット？
 @@:
 	bsr	NEW_CRTMOD_tone_save
-	move.w	d0,-(sp)
+	move	d0,-(sp)
 	bsr	NEW_CRTMOD_initialize	* モード不明
-	move.w	(sp)+,d0
+	move	(sp)+,d0
 	bsr	force_graphic_data_16_save
 	bsr	tram_check_clear
-	clr.b	mask_halt_flag
-	clr.b	mask_request_flag
+
+	lea	(mask_halt_flag,pc),a0
+	clr.b	(a0)
+	clr.b	(mask_request_flag-mask_halt_flag,a0)
+force_graphic_data_16_save_end:
 	rts
 
 force_graphic_data_16_save:
-	tst.b	save_force_flag
+	move.b	(save_force_flag,pc),d0
 	beq	force_graphic_data_16_save_end
-	clr.b	save_force_flag
-	bsr	graphic_data_16_save
-force_graphic_data_16_save_end:
-	rts
+
+	lea	(save_force_flag,pc),a0
+	clr.b	(a0)
+	bra	graphic_data_16_save
 
 NEW_CRTMOD_mask_set_check:
 	bsr	gpalette_check
@@ -996,12 +1076,13 @@ NEW_CRTMOD_mask_set_check:
 	bra	NEW_CRTMOD_mask_gnc_off
 
 NEW_CRTMOD_mask_halt:
-	tst.b	mask_disable_flag
+	move.b	(mask_disable_flag,pc),d0
 	bne	NEW_CRTMOD_mask_disable
-	tst.b	mask_enable_flag
+	move.b	(mask_enable_flag,pc),d0
 	beq	NEW_CRTMOD_end
 
-	st.b	mask_halt_flag		* 次回に備える
+	lea	(mask_halt_flag,pc),a0
+	st	(a0)			* 次回に備える
 	bra	NEW_CRTMOD_clear
 
 NEW_CRTMOD_mask_enable:
@@ -1009,14 +1090,14 @@ NEW_CRTMOD_mask_enable:
 	tst.l	d0
 	beq	NEW_CRTMOD_end
 
-	moveq.l	#$1f,d0
-	and.w	$e82600,d0
+	moveq	#$1f,d0
+	and	(VC_R2),d0
 	beq	NEW_CRTMOD_clear	* グラフィックは消えています
-	cmp.w	#$0010,d0
+	cmpi	#$0010,d0
 	beq	NEW_CRTMOD_clear
 
 	bsr	NEW_CRTMOD_tone_save
-	move.w	d0,-(sp)
+	move	d0,-(sp)
 
 	bsr	gpalette_zero_check	* 特殊な例だな
 	tst.l	d0
@@ -1028,56 +1109,58 @@ NEW_CRTMOD_mask_enable:
 @@:
 	bsr	NEW_CRTMOD_initialize	* 『G』一周中・・・
 	bsr	force_graphic_data_16_save
-	move.w	(sp)+,d0		* いらないから捨てる
+	move	(sp)+,d0		* いらないから捨てる
 	bra	NEW_CRTMOD_mask_enable_end
 NEW_CRTMOD_mask_enable_64k:
 	bsr	NEW_CRTMOD_mask_64k_mode_change
-	move.w	(sp)+,d0
+	move	(sp)+,d0
 	bsr	NEW_CRTMOD_mask_graphic_not_clear
 NEW_CRTMOD_mask_enable_end:
 	bsr	tram_check_clear
-	clr.b	mask_request_flag
+
+	lea	(mask_request_flag,pc),a0
+	clr.b	(a0)
 	rts
 
 NEW_CRTMOD_mask_disable:
 	bsr	tram_check_clear
-	clr.b	mask_halt_flag		* 禁止中はマスクなんかいらない
-	clr.b	mask_request_flag
+	lea	(mask_halt_flag,pc),a0
+	clr.b	(a0)			* 禁止中はマスクなんかいらない
+	clr.b	(mask_request_flag-mask_halt_flag,a0)
 
-	cmp.b	#16,d1
+	cmpi.b	#16,d1
 	bne	NEW_CRTMOD_end
 	bra	NEW_CRTMOD_mask_enable
 
 mask_graphic_not_clear_register	reg	d1/a0-a1
 
 NEW_CRTMOD_mask_graphic_not_clear:
-	movem.l	mask_graphic_not_clear_register,-(sp)
-	move.w	d0,d1
+	PUSH	mask_graphic_not_clear_register
+	move	d0,d1
 	bsr	gram_check
 	tst.l	d0
 	bne	NEW_CRTMOD_mask_graphic_not_clear_end
 
-	lea	$e82600,a1
-	moveq.l	#$60,d0
-	and.w	(a1),d0
-	or.w	d0,d1
+	lea	(VC_R2),a1
+	moveq	#$60,d0
+	and	(a1),d0
+	or	d0,d1
 
-	lea	$e80018,a0		* グラフィック・スクロール・レジスタのアドレス
+	lea	(CRTC_R12-VC_R2,a1),a0	* グラフィック・スクロール・レジスタのアドレス
 					* 画面中央に来るようにする
 	move.l	#$ff80_0000,d0
+	.rept	4
 	move.l	d0,(a0)+
-	move.l	d0,(a0)+
-	move.l	d0,(a0)+
-	move.l	d0,(a0)+
+	.endm
 
-	moveq.l	#%111,d0
-	and.w	-$200(a1),d0		* $e82400
-	lsl.w	#8,d0
-	move.b	$01(a0),d0
-	move.w	d0,(a0)
-	move.w	d1,(a1)			* トーンダウン＋６４Ｋ色表示
+	moveq	#%111,d0
+	and	(VC_R0-VC_R2,a1),d0
+	lsl	#8,d0
+	move.b	(1,a0),d0
+	move	d0,(a0)
+	move	d1,(a1)			* トーンダウン＋６４Ｋ色表示
 NEW_CRTMOD_mask_graphic_not_clear_end:
-	movem.l	(sp)+,mask_graphic_not_clear_register
+	POP	mask_graphic_not_clear_register
 	rts
 
 *-------------------------------------------------------------------------------
@@ -1086,58 +1169,47 @@ NEW_CRTMOD_mask_graphic_not_clear_end:
 	.text
 NEW_CRTMOD_16:
 	bsr	tram_check_clear
-	clr.b	save_force_flag
-	cmp.w	#$010c,d1
-	bne	@f
-	st.b	save_force_flag
-@@:
-	tst.b	gnc_flag
-	beq	NEW_CRTMOD_16_end
 
-NEW_CRTMOD_16_check:
-	cmp.w	#-1,d1
-	beq	NEW_CRTMOD_16_end
-	cmp.b	#17,d1
-	bcc	NEW_CRTMOD_16_end
-	cmp.b	#16,d1
-	beq	NEW_CRTMOD_16_gnc
-	bra	NEW_CRTMOD_16_end
+	lea	(save_force_flag,pc),a0
+	cmpi	#$010c,d1
+	seq	(a0)
 
-NEW_CRTMOD_16_gnc:
+	move.b	(gnc_flag,pc),d0
+	beq	NEW_CRTMOD_16_end
+*NEW_CRTMOD_16_check:
+	cmpi.b	#16,d1
+	bne	NEW_CRTMOD_16_end
+
+*NEW_CRTMOD_16_gnc:
 	move.l	d1,-(sp)
-	move.w	#$0c16,d1		* モード保存で切り替えする
-	moveq.l	#$1f,d0
-	and.w	$e82600,d0
+	move	#$0c16,d1		* モード保存で切り替えする
+	moveq	#$1f,d0
+	and	(VC_R2),d0
 	beq	@f			* グラフィックは消えています
-	move.w	#$0416,d1
+	move	#$0416,d1
 @@:
 	bsr	NEW_CRTMOD_screen_change
 	move.l	(sp)+,d1
-	btst.l	#8,d1
+	btst	#8,d1
 	beq	@f
 	bsr	graphic_scroll_register_clear
 @@:
-	bsr	NEW_CRTMOD_screen_initialize
-	rts
-
-NEW_CRTMOD_16_end:
-	move.l	vector_CRTMOD,-(sp)
-	rts
+	bra	NEW_CRTMOD_screen_initialize
 
 *-------------------------------------------------------------------------------
 * マクロ定義
 
-_HSYNC_WAIT2	.macro
+_HSYNC_WAIT2:	.macro
 		.local	_HSYNC_WAIT2_loop
 _HSYNC_WAIT2_loop:
-	tst.b	$e88001
+	tst.b	(MFP_GPIP)
 	bpl	_HSYNC_WAIT2_loop
 	.endm
 
-_HSYNC_WAIT	.macro
+_HSYNC_WAIT:	.macro
 		.local	_HSYNC_WAIT_loop
 _HSYNC_WAIT_loop:
-	tst.b	$e88001
+	tst.b	(MFP_GPIP)
 	bmi	_HSYNC_WAIT_loop
 	_HSYNC_WAIT2
 	.endm
@@ -1145,148 +1217,131 @@ _HSYNC_WAIT_loop:
 *-------------------------------------------------------------------------------
 * 常駐パレット機能（謎）
 
-	.text
-	.even
-graphic_palette_16_flag:
-	.ds.b	1
-	.even
-graphic_palette_16:
-	.ds.w	16
-
 graphic_palette_16_save_register	reg	d0/a0-a1
 
 	.text
 graphic_palette_16_save:
-	movem.l	graphic_palette_16_save_register,-(sp)
-	lea	$e82000,a0
-	lea	graphic_palette_16(pc),a1
-	moveq.l	#16-1,d0
+	PUSH	graphic_palette_16_save_register
+	lea	(GRAPHIC_PAL),a0
+	lea	(graphic_palette_16,pc),a1
+	st	(graphic_palette_16_flag-graphic_palette_16,a1)
+
+	moveq	#16-1,d0
 	_HSYNC_WAIT
 graphic_palette_16_save_loop:
 	_HSYNC_WAIT2
-	move.w	(a0)+,(a1)+
+	move	(a0)+,(a1)+
 	dbra	d0,graphic_palette_16_save_loop
-	st.b	graphic_palette_16_flag
-	movem.l	(sp)+,graphic_palette_16_save_register
+
+	POP	graphic_palette_16_save_register
 	rts
 
 *-------------------------------------------------------------------------------
 * グラフィックが書き換わったか調べる（いい加減なやつ・・・）
 
-	.text
-	.even
-graphic_data_16_flag:
-	.ds.b	1
-	.even
-graphic_data_16:
-	.ds.w	9
-
 graphic_data_16_check_register	reg	d0-d1/a0-a1
 
 	.text
 graphic_data_16_check:
-	movem.l	graphic_data_16_check_register,-(sp)
+	PUSH	graphic_data_16_check_register
 
-	btst.b	#3,$e80028
+	btst	#3,(CRTC_R20h)
 	bne	graphic_data_16_check_end
-	moveq.l	#%0001_1111,d0
-	and.w	$e82600,d0
-	bclr.l	#4,d0
+	moveq	#$1f,d0
+	and	(VC_R2),d0
+	bclr	#4,d0
 	bne	@f
-	tst.w	d0
-	bne	@f
-	bra	graphic_data_16_check_end	* グラフィックは消えています
+	tst	d0
+	beq	graphic_data_16_check_end	* グラフィックは消えています
 @@:
-	lea	graphic_data_16(pc),a1
-	lea	$c00000,a0
-	moveq.l	#$04,d1
-	swap.w	d1
+	lea	(graphic_data_16,pc),a1
+	lea	(G_VRAM),a0
+	moveq	#4,d1
+	swap	d1
 
-	move.w	(a0),d0
-	cmp.w	(a1)+,d0
+	.irp	offset,0,$400
+	move	(offset,a0),d0
+	cmp	(a1)+,d0
 	bne	graphic_data_16_check_new
-	move.w	$400(a0),d0
-	cmp.w	(a1)+,d0
-	bne	graphic_data_16_check_new
+	.endm
 
-	add.l	d1,a0
-	move.w	$100(a0),d0
-	cmp.w	(a1)+,d0
+	adda.l	d1,a0
+	.irp	offset,$100,$300
+	move	(offset,a0),d0
+	cmp	(a1)+,d0
 	bne	graphic_data_16_check_new
-	move.w	$300(a0),d0
-	cmp.w	(a1)+,d0
-	bne	graphic_data_16_check_new
+	.endm
 
-	add.l	d1,a0
-	move.w	$200(a0),d0
-	cmp.w	(a1)+,d0
+	adda.l	d1,a0
+	move	($200,a0),d0
+	cmp	(a1)+,d0
 	bne	graphic_data_16_check_new
 
-	add.l	d1,a0
-	move.w	$100(a0),d0
-	cmp.w	(a1)+,d0
+	adda.l	d1,a0
+	.irp	offset,$100,$300
+	move	(offset,a0),d0
+	cmp	(a1)+,d0
 	bne	graphic_data_16_check_new
-	move.w	$300(a0),d0
-	cmp.w	(a1)+,d0
-	bne	graphic_data_16_check_new
+	.endm
 
-	add.l	d1,a0
-	move.w	(a0),d0
-	cmp.w	(a1)+,d0
+	adda.l	d1,a0
+	.irp	offset,0,$400
+	move	(offset,a0),d0
+	cmp	(a1)+,d0
 	bne	graphic_data_16_check_new
-	move.w	$400(a0),d0
-	cmp.w	(a1)+,d0
-	bne	graphic_data_16_check_new
+	.endm
 
-	st.b	graphic_data_16_flag		* 以後のチェックを省く
+	lea	(graphic_data_16_flag,pc),a0
+	st	(a0)				* 以後のチェックを省く
 	bra	graphic_data_16_check_end	* おそらく書き換わってない・・・
 
 graphic_data_16_check_new:
-	lea	$c00000,a0
-	clr.l	d0
-	move.w	(a0),d0
-	add.w	$400(a0),d0
-	add.l	d1,a0
-	add.w	$100(a0),d0
-	add.w	$300(a0),d0
-	add.l	d1,a0
-	add.w	$200(a0),d0
-	add.l	d1,a0
-	add.w	$100(a0),d0
-	add.w	$300(a0),d0
-	add.l	d1,a0
-	add.w	(a0),d0
-	add.w	$400(a0),d0
-	tst.l	d0
+	lea	(G_VRAM),a0
+	moveq	#0,d0
+	move	(a0),d0
+	or	($400,a0),d0
+	adda.l	d1,a0
+	or	($100,a0),d0
+	or	($300,a0),d0
+	adda.l	d1,a0
+	or	($200,a0),d0
+	adda.l	d1,a0
+	or	($100,a0),d0
+	or	($300,a0),d0
+	adda.l	d1,a0
+	or	(a0),d0
+	or	($400,a0),d0
 	beq	graphic_data_16_check_end	* クリア中・・・
 
 	bsr	graphic_data_16_save		* グラフィックデータの保存
 	bsr	graphic_palette_16_save		* パレットデータの保存
 graphic_data_16_check_end:
-	movem.l	(sp)+,graphic_data_16_check_register
+	POP	graphic_data_16_check_register
 	rts
 
 graphic_data_16_save:
-	movem.l	d1/a0-a1,-(sp)
-	moveq.l	#$04,d1
-	swap.w	d1
-	lea	graphic_data_16(pc),a1
-	lea	$c00000,a0
-	move.w	(a0),(a1)+
-	move.w	$400(a0),(a1)+
-	add.l	d1,a0
-	move.w	$100(a0),(a1)+
-	move.w	$300(a0),(a1)+
-	add.l	d1,a0
-	move.w	$200(a0),(a1)+
-	add.l	d1,a0
-	move.w	$100(a0),(a1)+
-	move.w	$300(a0),(a1)+
-	add.l	d1,a0
-	move.w	(a0),(a1)+
-	move.w	$400(a0),(a1)+
-	st.b	graphic_data_16_flag
-	movem.l	(sp)+,d1/a0-a1
+	PUSH	d1/a0-a1
+	moveq	#4,d1
+	swap	d1
+	lea	(G_VRAM),a0
+	lea	(graphic_data_16,pc),a1
+	st	(graphic_data_16_flag-graphic_data_16,a1)
+
+	move	(a0),(a1)+
+	move	($400,a0),(a1)+
+	adda.l	d1,a0
+	move	($100,a0),(a1)+
+	move	($300,a0),(a1)+
+	adda.l	d1,a0
+	move	($200,a0),(a1)+
+	adda.l	d1,a0
+	move	($100,a0),(a1)+
+	move	($300,a0),(a1)+
+	adda.l	d1,a0
+	move	(a0),(a1)+
+	move	($400,a0),(a1)+
+
+	POP	d1/a0-a1
 	rts
 
 *-------------------------------------------------------------------------------
@@ -1297,78 +1352,66 @@ graphic_data_16_save:
 
 	.text
 NEW_CRTMOD_screen_change:
-	move.b	#16,$093c.w		* 現在の画面モードを保存
+	move.b	#16,($93c)		* 現在の画面モードを保存
 
-	clr.w	d0
-	move.b	$0992.w,d0		* カーソル表示フラグ
-	move.w	d0,-(sp)
-	move.l	($400+(__B_CUROFF*4)).w,a0
+	clr	d0
+	move.b	($992),d0		* カーソル表示フラグ
+	move	d0,-(sp)
+	movea.l	($400+_B_CUROFF*4),a0
 	jsr	(a0)
 
-	lea	$e80000,a0
+	lea	(CRTC_R00),a0
 	bsr	vdisp_wait
-	move.w	$2600(a0),d0
-	clr.w	$2600(a0)
-	move.w	d1,$28(a0)
+	move	(VC_R2-CRTC_R00,a0),d0
+	clr	(VC_R2-CRTC_R00,a0)
+	move	d1,(CRTC_R20-CRTC_R00,a0)
 
-	move.w	#$0089,(a0)+		* 水平
-	move.w	#$000e,(a0)+
-	move.w	#$001c,(a0)+
-	move.w	#$007c,(a0)+
-	move.w	#$0237,(a0)+		* 垂直
-	move.w	#$0005,(a0)+
-	move.w	#$0028,(a0)+
-	move.w	#$0228,(a0)+
-	move.w	#$001b,(a0)+
-	clr.w	(a0)+			* ラスター割り込み位置
+		*    |	    水平      |		垂直	 |   | ラスター割り込み位置
+	.irp	data,$89_000e,$1c_007c,$237_0005,$28_0228,$1b_0000
+	move.l	#data,(a0)+
+	.endm
 	clr.l	(a0)+			* テキスト・スクロール・レジスタ
 
-	lsr.w	#8,d1
-	and.w	#%111,d1
-	move.w	d1,$e82400
+	lsr	#8,d1
+	andi	#%111,d1
+	move	d1,(VC_R0)
 
-	moveq.l	#$ff,d1
-	lea	$eb0800,a0
+	moveq	#-1,d1
+	lea	(BGSR_BG0),a0
 	move.l	d1,(a0)+		* ＢＧスクロール・レジスタ
 	move.l	d1,(a0)+
-	and.w	#$fff6,(a0)+		* ＢＧコントロール
+	and	#$fff6,(a0)+		* ＢＧコントロール
 	move.l	d1,(a0)+		* 画面モード・レジスタ
 	move.l	d1,(a0)+
 
-	lea	$e80018,a0		* グラフィック・スクロール・レジスタのアドレス
+	lea	(CRTC_R12),a0		* グラフィック・スクロール・レジスタのアドレス
 					* 画面中央に来るようにする
-	move.w	$10(a0),d1
-	and.w	#$03ff,d1
-	cmp.w	#$0316,d1
+	move	(CRTC_R20-CRTC_R12,a0),d1
+	andi	#$03ff,d1
+	cmpi	#$0316,d1
 	bne	@f
+
 	move.l	#$ff80_0000,d1
+	.rept	4
 	move.l	d1,(a0)+
-	move.l	d1,(a0)+
-	move.l	d1,(a0)+
-	move.l	d1,(a0)+
+	.endm
 @@:
+	move	d0,(VC_R2)
 
-	move.w	d0,$e82600
-
-	clr.l	$0948.w			* テキスト表示開始アドレスオフセット
+	clr.l	($948)			* テキスト表示開始アドレスオフセット
 	bsr	_graphic_color_max	* グラフィック画面の色数－１
 	bsr	_graphic_line_length	* グラフィックＶＲＡＭ横サイズ
 	bsr	_graphic_window		* グラフィッククリッピングエリア
-	move.w	#96-1,$0970.w		* テキスト桁数－１
-	move.w	#32-1,$0972.w		* テキスト行数－１
-	clr.w	$0974.w			* カーソル位置
-	clr.w	$0976.w
-	clr.w	$0a9a.w			* マウスカーソル移動範囲
-	clr.w	$0a9c.w
-	move.w	#768-1,$0a9e.w
-	move.w	#512-1,$0aa0.w
 
-	move.w	(sp)+,d0
+	move.l	#(96-1)<<16+(32-1),($970)	* テキスト桁数-1 | 行数-1
+	clr.l	($974)			* カーソル位置
+	clr.l	($a9a)			* マウスカーソル移動範囲
+	move.l	#(768-1)<<16+(512-1),($a9e)
+
+	move	(sp)+,d0
 	beq	NEW_CRTMOD_screen_change_end
-	move.l	($400+(__B_CURON*4)).w,a0
-	jsr	(a0)
-NEW_CRTMOD_screen_change_end:
-	rts
+	movea.l	($400+_B_CURON*4),a0
+	jmp	(a0)
 
 *-------------------------------------------------------------------------------
 * 画面を初期化する（グラフィックパレット以外）
@@ -1377,33 +1420,28 @@ NEW_CRTMOD_screen_initialize_register	reg	d0-d2/a1
 
 	.text
 NEW_CRTMOD_screen_initialize:
-	movem.l	NEW_CRTMOD_screen_initialize_register,-(sp)
-	btst.l	#8,d1
+	PUSH	NEW_CRTMOD_screen_initialize_register
+	btst	#8,d1
 	bne	NEW_CRTMOD_screen_initialize_end
 
-	moveq.l	#2,d1
-	move.l	($400+(__B_CLR_ST*4)).w,a1
+	moveq	#2,d1
+	movea.l	($400+_B_CLR_ST*4),a1
 	jsr	(a1)			* 画面のクリア
-	or.w	#$0020,$e82600		* テキスト表示オン
-	moveq.l	#-2,d1
-	move.l	($400+(__CONTRAST*4)).w,a1
+	ori	#$20,(VC_R2)		* テキスト表示オン
+
+	moveq	#-2,d1
+	movea.l	($400+_CONTRAST*4),a1
 	jsr	(a1)			* コントラスト初期化
-	moveq.l	#0,d1
-	moveq.l	#-2,d2
-	move.l	($400+(__TPALET*4)).w,a1
+
+	moveq	#-2,d2
+	movea.l	($400+_TPALET*4),a1
+	.irp	pal,0,1,2,3,4,8
+	moveq	#pal,d1
 	jsr	(a1)			* テキストパレット初期化
-	moveq.l	#1,d1
-	jsr	(a1)
-	moveq.l	#2,d1
-	jsr	(a1)
-	moveq.l	#3,d1
-	jsr	(a1)
-	moveq.l	#4,d1
-	jsr	(a1)
-	moveq.l	#8,d1
-	jsr	(a1)
+	.endm
 NEW_CRTMOD_screen_initialize_end:
-	movem.l	(sp)+,NEW_CRTMOD_screen_initialize_register
+	POP	NEW_CRTMOD_screen_initialize_register
+NEW_CRTMOD_screen_change_end:
 	rts
 
 *-------------------------------------------------------------------------------
@@ -1411,11 +1449,10 @@ NEW_CRTMOD_screen_initialize_end:
 
 	.text
 graphic_scroll_register_clear:
-	lea	$e80018,a0
+	lea	(CRTC_R12),a0
+	.rept	4
 	clr.l	(a0)+
-	clr.l	(a0)+
-	clr.l	(a0)+
-	clr.l	(a0)+
+	.endm
 	rts
 
 *-------------------------------------------------------------------------------
@@ -1423,10 +1460,10 @@ graphic_scroll_register_clear:
 
 	.text
 vdisp_wait:
-	btst.b	#4,$e88001
+	btst	#4,(MFP_GPIP)
 	beq	vdisp_wait
 vdisp_wait2:
-	btst.b	#4,$e88001
+	btst	#4,(MFP_GPIP)
 	bne	vdisp_wait2
 	rts
 
@@ -1437,27 +1474,23 @@ vdisp_wait2:
 *   d0.l  = 0 ＧＮＣ６４Ｋモードではありません
 *        != 0 ぷにぷに６４Ｋモードです
 
-gnc64k_check_register	reg	d1
-
 	.text
 gnc64k_check:
-	movem.l	gnc64k_check_register,-(sp)
-	clr.l	d0
-	tst.b	gnc_flag
-	beq	gnc64k_check_end
+	move.b	(gnc_flag,pc),d0
+	beq	gnc64k_check_not_gnc64k
 
-	moveq.l	#$1f,d1
-	and.w	$e82600,d1
-	beq	gnc64k_check_end	* グラフィックは消えています
+	moveq	#$1f,d0
+	and	(VC_R2),d0
+	beq	gnc64k_check_not_gnc64k	* グラフィックは消えています
 
-	moveq.l	#%111,d1
-	and.w	$e82400,d1
-	btst.l	#1,d1
-	beq	gnc64k_check_end
+	btst	#1,(VC_R0l)
+	beq	gnc64k_check_not_gnc64k
+*gnc64k_check_gnc64k:
+	moveq	#-1,d0
+	rts
 
-	moveq.l	#$ff,d0
-gnc64k_check_end:
-	movem.l	(sp)+,gnc64k_check_register
+gnc64k_check_not_gnc64k:
+	moveq	#0,d0
 	rts
 
 *-------------------------------------------------------------------------------
@@ -1467,17 +1500,17 @@ gpalette_set_register	reg	d0-d2/a0
 
 	.text
 gpalette_set:
-	movem.l	gpalette_set_register,-(sp)
-	lea	$e82000,a0
+	PUSH	gpalette_set_register
+	lea	(GRAPHIC_PAL),a0
 	move.l	#$00010001,d0
 	move.l	#$02020202,d1
-	moveq.l	#128-1,d2
+	moveq	#128-1,d2
 	bsr	vdisp_wait
 gpalette_set_loop:
 	move.l	d0,(a0)+
 	add.l	d1,d0
 	dbra	d2,gpalette_set_loop
-	movem.l	(sp)+,gpalette_set_register
+	POP	gpalette_set_register
 	rts
 
 *-------------------------------------------------------------------------------
@@ -1490,28 +1523,28 @@ gpalette_set_loop:
 gpalette_check_register	reg	d1-d4/a0
 
 	.text
-gpalette_sum:
-	.dc.l	0
+*gpalette_sum:
+*	.dc.l	0
 gpalette_check:
-	movem.l	gpalette_check_register,-(sp)
-	lea	$e82000,a0
-	move.w	#256-1,d2
-	clr.l	d3
-	clr.w	d4
-	clr.l	d0
+	PUSH	gpalette_check_register
+	lea	(GRAPHIC_PAL),a0
+	move	#256-1,d2
+	moveq	#0,d3
+	clr	d4
+	moveq	#0,d0
 	_HSYNC_WAIT
 gpalette_check_loop:
 	_HSYNC_WAIT2
-	move.w	(a0)+,d0
+	move	(a0)+,d0
 	add.l	d0,d3
-	eor.w	d0,d4
+	eor	d0,d4
 	dbra	d2,gpalette_check_loop
 
-	move.l	d3,gpalette_sum
-	move.w	d4,d0
+*	move.l	d3,gpalette_sum
+	move	d4,d0
 	ext.l	d0
 gpalette_check_end:
-	movem.l	(sp)+,gpalette_check_register
+	POP	gpalette_check_register
 	rts
 
 *-------------------------------------------------------------------------------
@@ -1525,18 +1558,19 @@ gpalette_zero_check_register	reg	d1-d2/a0
 
 	.text
 gpalette_zero_check:
-	movem.l	gpalette_zero_check_register,-(sp)
-	lea	$e82000,a0
-	moveq.l	#16-1,d2
-	clr.l	d0
-	clr.l	d1
+	PUSH	gpalette_zero_check_register
+	lea	(GRAPHIC_PAL),a0
+	moveq	#16-1,d2
+	moveq	#0,d0
+	moveq	#0,d1
 	_HSYNC_WAIT
 @@:
 	_HSYNC_WAIT2
-	move.w	(a0)+,d1
+	move	(a0)+,d1
 	add.l	d1,d0
 	dbra	d2,@b
-	movem.l	(sp)+,gpalette_zero_check_register
+	POP	gpalette_zero_check_register
+gpalette_check_set_end:
 	rts
 
 *-------------------------------------------------------------------------------
@@ -1552,9 +1586,7 @@ gpalette_check_set:
 	tst.l	d0
 	beq	gpalette_check_set_end
 
-	bsr	gpalette_set
-gpalette_check_set_end:
-	rts
+	bra	gpalette_set
 
 *-------------------------------------------------------------------------------
 * テキスト、グラフィックラムの使用フラグを見てマスクをする
@@ -1567,10 +1599,7 @@ tram_check_mask:
 
 	bsr	gram_check
 	tst.l	d0
-	bne	tram_check_mask_end
-
-	bsr	mask_sub
-	st.b	mask_set_flag
+	beq	mask_sub
 tram_check_mask_end:
 	rts
 
@@ -1579,15 +1608,12 @@ tram_check_mask_end:
 
 	.text
 tram_check_clear:
-	tst.b	mask_set_flag
+	move.b	(mask_set_flag,pc),d0
 	beq	tram_check_clear_end
 
 	bsr	tram_check
 	tst.l	d0
-	bne	tram_check_clear_end
-
-	bsr	clear_sub
-	clr.b	mask_set_flag
+	beq	clear_sub
 tram_check_clear_end:
 	rts
 
@@ -1644,301 +1670,336 @@ tram_check_clear_end:
 
 	.text
 NEW_TGUSEMD:
-	swap.w	d1
-	cmp.w	#_GM_INTERNAL_MODE,d1
+	swap	d1
+	cmpi	#_GM_INTERNAL_MODE,d1
 	beq	NEW_TGUSEMD_internal
-	swap.w	d1
+	swap	d1
 
-	clr.b	graphic_data_16_flag
-	cmp.b	#0,d1
-	beq	NEW_TGUSEMD_graphic
-	cmp.b	#1,d1
+	lea	(mask_enable_flag,pc),a0
+	clr.b	(graphic_data_16_flag-mask_enable_flag,a0)
+
+	cmpi.b	#1,d1
 	beq	NEW_TGUSEMD_text
-	bra	NEW_TGUSEMD_end
+	bhi	NEW_TGUSEMD_end
+	bra	NEW_TGUSEMD_graphic
 
 NEW_TGUSEMD_graphic:
-	cmp.b	#-1,d2
+	cmpi.b	#-1,d2
 	beq	NEW_TGUSEMD_clear
-	cmp.b	#4,d2
+	cmpi.b	#4,d2
 	bcc	NEW_TGUSEMD_end
+
+	cmpi.b	#2,d2			;アプリケーションで使用するならフラグセット
+	seq	(g_use_flag-mask_enable_flag,a0)
+
 	bra	NEW_TGUSEMD_clear
 
 NEW_TGUSEMD_text:
-	cmp.b	#-1,d2
+	cmpi.b	#-1,d2
 	beq	NEW_TGUSEMD_end
-	cmp.b	#4,d2
+	cmpi.b	#4,d2
 	bcc	NEW_TGUSEMD_end
-	cmp.b	#2,d2
+	cmpi.b	#2,d2
 	beq	NEW_TGUSEMD_text_2
 
-	st.b	mask_enable_flag
-	tst.b	mask_halt_flag
+	st	(a0)			* mask_enable_flag
+	tst.b	(mask_halt_flag-mask_enable_flag,a0)
 	bne	NEW_TGUSEMD_mask
 	bra	NEW_TGUSEMD_end
 
 NEW_TGUSEMD_text_2:
-	tst.b	mask_set_flag
-	sne.b	mask_halt_flag
+	tst.b	(mask_set_flag-mask_enable_flag,a0)
+	sne	(mask_halt_flag-mask_enable_flag,a0)
 	beq	NEW_TGUSEMD_clear
-	clr.b	mask_enable_flag
+
+	clr.b	(a0)			* mask_enable_flag
 NEW_TGUSEMD_clear:
 	bsr	tram_check_clear
-	clr.b	mask_request_flag
+	clr.b	(mask_request_flag-mask_enable_flag,a0)
 NEW_TGUSEMD_end:
-	move.l	vector_TGUSEMD,-(sp)
+call_orig_tgusemd:
+	move.l	(vector_TGUSEMD,pc),-(sp)
 	rts
 
 NEW_TGUSEMD_mask:
-	tst.b	mask_disable_flag
+	move.b	(mask_disable_flag,pc),d0
 	bne	NEW_TGUSEMD_end
-	tst.b	mask_enable_flag
+	move.b	(mask_enable_flag,pc),d0
 	beq	NEW_TGUSEMD_end
 
-	move.l	vector_TGUSEMD,a0
+	movea.l	(vector_TGUSEMD,pc),a0
 	jsr	(a0)
-	cmp.w	#$0316,$e80028
+	cmpi	#$0316,(CRTC_R20)
 	bne	NEW_TGUSEMD_mask_end
 	bsr	tram_check_mask
-	clr.b	mask_halt_flag
-	clr.b	mask_request_flag
+
+	lea	(mask_halt_flag,pc),a0
+	clr.b	(a0)
+	clr.b	(mask_request_flag-mask_halt_flag,a0)
 NEW_TGUSEMD_mask_end:
 	rts
 
-NEW_TGUSEMD_internal:
-	swap.w	d1
-	cmp.b	#-1,d1
-	beq	NEW_TGUSEMD_end
-	tst.b	d1
-	bpl	NEW_TGUSEMD_end
-	cmp.w	#$ff80,d1
-	bcs	NEW_TGUSEMD_end
-	cmp.w	#$ffa0,d1
-	bcc	NEW_TGUSEMD_end
+NEW_TGUSEMD_internal_MIN:	.equ	$ff80
+NEW_TGUSEMD_internal_MAX:	.equ	$ff92
 
-	move.w	d1,d0
-	sub.w	#$ff80,d0
-	add.w	d0,d0
-	add.w	d0,d0
-	lea	NEW_TGUSEMD_jump_table(pc),a0
-	move.l	(a0,d0.w),a0
+NEW_TGUSEMD_internal:
+	swap	d1
+	cmpi	#NEW_TGUSEMD_internal_MIN,d1
+	bcs	NEW_TGUSEMD_end
+	cmpi	#NEW_TGUSEMD_internal_MAX,d1
+	bhi	NEW_TGUSEMD_end
+
+	move	d1,d0
+	sub	#NEW_TGUSEMD_internal_MIN,d0
+	add	d0,d0
+	lea	(NEW_TGUSEMD_jump_table,pc),a0
+	adda	(a0,d0.w),a0
 	jsr	(a0)
-	swap.w	d0
-	move.w	#_GM_INTERNAL_MODE,d0
+	swap	d0
+	move	#_GM_INTERNAL_MODE,d0
 	rts
 
 NEW_TGUSEMD_jump_table:
-	.dc.l	NEW_TGUSEMD_internal_version			* ff80
-	.dc.l	NEW_TGUSEMD_internal_mask_state			* ff81
-	.dc.l	NEW_TGUSEMD_internal_gnc_state			* ff82
-	.dc.l	NEW_TGUSEMD_internal_auto_state			* ff83
-	.dc.l	NEW_TGUSEMD_internal_graphic_mode_state		* ff84
-	.dc.l	NEW_TGUSEMD_internal_active_state		* ff85
-	.dc.l	NEW_TGUSEMD_end					* ff86
-	.dc.l	NEW_TGUSEMD_end					* ff87
-	.dc.l	NEW_TGUSEMD_internal_mask_request		* ff88
-	.dc.l	NEW_TGUSEMD_internal_mask_set			* ff89
-	.dc.l	NEW_TGUSEMD_internal_mask_clear			* ff8a
-	.dc.l	NEW_TGUSEMD_internal_auto_disable		* ff8b
-	.dc.l	NEW_TGUSEMD_internal_auto_enable		* ff8c
-	.dc.l	NEW_TGUSEMD_internal_active			* ff8d
-	.dc.l	NEW_TGUSEMD_internal_inactive			* ff8e
-	.dc.l	NEW_TGUSEMD_end					* ff8f
-	.dc.l	NEW_TGUSEMD_internal_keep_palette		* ff90
-	.dc.l	NEW_TGUSEMD_internal_palette_save		* ff91
-	.dc.l	NEW_TGUSEMD_internal_gvram_save			* ff92
-	.dc.l	NEW_TGUSEMD_end					* ff93
-	.dc.l	NEW_TGUSEMD_end					* ff94
-	.dc.l	NEW_TGUSEMD_end					* ff95
-	.dc.l	NEW_TGUSEMD_end					* ff96
-	.dc.l	NEW_TGUSEMD_end					* ff97
-	.dc.l	NEW_TGUSEMD_end					* ff98
-	.dc.l	NEW_TGUSEMD_end					* ff99
-	.dc.l	NEW_TGUSEMD_end					* ff9a
-	.dc.l	NEW_TGUSEMD_end					* ff9b
-	.dc.l	NEW_TGUSEMD_end					* ff9c
-	.dc.l	NEW_TGUSEMD_end					* ff9d
-	.dc.l	NEW_TGUSEMD_end					* ff9e
-	.dc.l	NEW_TGUSEMD_end					* ff9f
+@@:	.dc	NEW_TGUSEMD_internal_version-@b		* ff80
+	.dc	NEW_TGUSEMD_internal_mask_state-@b	* ff81
+	.dc	NEW_TGUSEMD_internal_gnc_state-@b	* ff82
+	.dc	NEW_TGUSEMD_internal_auto_state-@b	* ff83
+	.dc	NEW_TGUSEMD_internal_graphic_mode_state-@b	* ff84
+	.dc	NEW_TGUSEMD_internal_active_state-@b	* ff85
+	.dc	NEW_TGUSEMD_end-@b			* ff86
+	.dc	NEW_TGUSEMD_end-@b			* ff87
+	.dc	NEW_TGUSEMD_internal_mask_request-@b	* ff88
+	.dc	NEW_TGUSEMD_internal_mask_set-@b	* ff89
+	.dc	NEW_TGUSEMD_internal_mask_clear-@b	* ff8a
+	.dc	NEW_TGUSEMD_internal_auto_disable-@b	* ff8b
+	.dc	NEW_TGUSEMD_internal_auto_enable-@b	* ff8c
+	.dc	NEW_TGUSEMD_internal_active-@b		* ff8d
+	.dc	NEW_TGUSEMD_internal_inactive-@b	* ff8e
+	.dc	NEW_TGUSEMD_end-@b			* ff8f
+	.dc	NEW_TGUSEMD_internal_keep_palette-@b	* ff90
+	.dc	NEW_TGUSEMD_internal_palette_save-@b	* ff91
+	.dc	NEW_TGUSEMD_internal_gvram_save-@b	* ff92
 
 NEW_TGUSEMD_internal_version:
-	move.w	#GM_VERSION,d0
+	move	#GM_VERSION,d0
 	rts
 
 NEW_TGUSEMD_internal_mask_state:
-	tst.b	mask_set_flag
-	sne.b	d0
-	ext.w	d0
+	move.b	(mask_set_flag,pc),d0
+	sne	d0
+	ext	d0
 	rts
 
 NEW_TGUSEMD_internal_gnc_state:
-	tst.b	gnc_flag
-	sne.b	d0
-	ext.w	d0
+	move.b	(gnc_flag,pc),d0
+	sne	d0
+	ext	d0
 	rts
 
 NEW_TGUSEMD_internal_auto_state:
-	clr.w	d0
-	tst.b	mask_enable_flag
-	sne.b	d0
-	add.w	d0,d0
-	tst.b	mask_disable_flag
-	sne.b	d0
-	lsr.w	#7,d0
+	clr	d0
+	move.b	(mask_enable_flag,pc),d0
+	sne	d0
+	add	d0,d0
+	move.b	(mask_disable_flag,pc),d0
+	sne	d0
+	lsr	#7,d0
 	rts
 
 NEW_TGUSEMD_internal_graphic_mode_state:
 	bsr	crtc_check_16
-	sne.b	d0
-	ext.w	d0
+	sne	d0
+	ext	d0
 	rts
 
 NEW_TGUSEMD_internal_active_state:
-	tst.b	active_flag
-	sne.b	d0
-	ext.w	d0
+	move.b	(active_flag,pc),d0
+	sne	d0
+	ext	d0
 	rts
 
 NEW_TGUSEMD_internal_mask_request:
-	st.b	mask_request_flag
-	rts
+	lea	(mask_request_flag,pc),a0
+	st	(a0)
+@@:	rts
 
 NEW_TGUSEMD_internal_mask_set:
 	bsr	crtc_check_16
-	beq	@f			* マスクをするのは６４Ｋの画像のみです
-	btst.b	#1,$e80028
-	beq	@f
+	beq	@b			* マスクをするのは６４Ｋの画像のみです
+	btst	#1,(CRTC_R20h)
+	beq	@b
+
 	bsr	mask_sub
-	st.b	mask_set_flag
-	clr.b	mask_halt_flag
-	clr.b	mask_request_flag
-@@:
-	rts
+	bra	@f
 
 NEW_TGUSEMD_internal_mask_clear:
 	bsr	clear_sub
-	clr.b	mask_set_flag
-	clr.b	mask_halt_flag
-	clr.b	mask_request_flag
+@@:
+	lea	(mask_halt_flag,pc),a0
+	clr.b	(a0)
+	clr.b	(mask_request_flag-mask_halt_flag,a0)
 	rts
 
 NEW_TGUSEMD_internal_auto_disable:
-	st.b	mask_disable_flag
-	clr.b	mask_enable_flag
+	lea	(mask_disable_flag,pc),a0
+	st	(a0)+
+	clr.b	(mask_enable_flag-(mask_disable_flag+1),a0)
 	rts
 
 NEW_TGUSEMD_internal_auto_enable:
-	clr.b	mask_disable_flag
-	st.b	mask_enable_flag
+	lea	(mask_disable_flag,pc),a0
+	clr.b	(a0)+
+	st	(mask_enable_flag-(mask_disable_flag+1),a0)
 	rts
 
-NEW_TGUSEMD_internal_active
-	st.b	active_flag
+NEW_TGUSEMD_internal_active:
+	lea	(active_flag,pc),a0
+	st	(a0)
+	.ifdef	__DEBUG_ACT__
+	PUSH	d0/a1
+	lea	(@f,pc),a1
+	IOCS	_B_PRINT
+	POP	d0/a1
+	bra	@@f
+@@:	.dc.b	'gm: active',13,10,0
+	.even
+@@:
+	.endif
 	rts
 
 NEW_TGUSEMD_internal_inactive:
-	clr.b	active_flag
+	lea	(active_flag,pc),a0
+	clr.b	(a0)
+	.ifdef	__DEBUG_ACT__
+	PUSH	d0/a1
+	lea	(@f,pc),a1
+	IOCS	_B_PRINT
+	POP	d0/a1
+	bra	@@f
+@@:	.dc.b	'gm: inactive',13,10,0
+	.even
+@@:
+	.endif
 	rts
 
 NEW_TGUSEMD_internal_keep_palette:
-	tst.b	graphic_palette_16_flag
-	sne.b	d0
-	ext.w	d0
-	lea	graphic_palette_16,a1
+	move.b	(graphic_palette_16_flag,pc),d0
+	sne	d0
+	ext	d0
+	lea	(graphic_palette_16,pc),a1
 	rts
 
 NEW_TGUSEMD_internal_palette_save:
-	clr.b	check_force_flag
-	clr.b	save_force_flag
-	bsr	graphic_palette_16_save
-	rts
+	pea	(graphic_palette_16_save,pc)
+	bra	@f
 
 NEW_TGUSEMD_internal_gvram_save:
-	clr.b	check_force_flag
-	clr.b	save_force_flag
-	bsr	graphic_data_16_save
+	pea	(graphic_data_16_save,pc)
+@@:
+	lea	(check_force_flag,pc),a0
+	clr.b	(a0)+
+	clr.b	(save_force_flag-(check_force_flag+1),a0)
 	rts
 
 *-------------------------------------------------------------------------------
 * _G_CLR_ONの処理
 
+gstop_gvram_used_mes:
+	.dc.b	' グラフィック画面は占有されています、使用不可能です ',0
+	.even
+
 	.text
 NEW_G_CLR_ON:
-	tst.b	active_flag
+	move.b	(active_flag,pc),d0
 	beq	NEW_G_CLR_ON_end
 
-	clr.b	graphic_data_16_flag
+*** gstop start ***
 
-	tst.b	gnc_flag
+	move.b	(gstop_flag,pc),d0
+	beq	NEW_G_CLR_ON_gstop_end
+	move.b	(g_use_flag,pc),d0
+	bne	NEW_G_CLR_ON_gstop_end		;自分で占有して使うならOK
+
+	PUSH	d1-d7/a1-a6
+	moveq	#0,d1
+	moveq	#-1,d2
+	bsr	call_orig_tgusemd
+	tst.b	d0
+	beq	@f
+	subq.b	#3,d0
+	beq	@f
+
+	move	#$1000,d7			* 中止のみ
+	lea	(gstop_gvram_used_mes,pc),a5	* 表示文字列
+	trap	#14
+@@:
+	POP	d1-d7/a1-a6
+NEW_G_CLR_ON_gstop_end:
+
+*** gstop end ***
+
+	lea	(graphic_data_16_flag,pc),a0
+	clr.b	(a0)
+
+	move.b	(gnc_flag,pc),d0
 	beq	NEW_G_CLR_ON_gnc_off
 
 	bsr	graphic_scroll_register_clear
 NEW_G_CLR_ON_gnc_off:
 	bsr	tram_check_clear
-	clr.b	mask_request_flag
+	lea	(mask_request_flag,pc),a0
+	clr.b	(a0)
 NEW_G_CLR_ON_end:
-	bsr	NEW_G_CLR_ON_sub
-	rts
+	bra	NEW_G_CLR_ON_sub
 
 NEW_G_CLR_ON_sub:
-	movem.l	d1-d7/a1-a6,-(sp)
-	move.w	#$0020,$e82600
-	bset.b	#3,$e80028
+	PUSH	d1-d7/a1-a6
+	move	#$20,(VC_R2)
+	bset	#3,(CRTC_R20h)
 
-	clr.l	d1
-	move.l	d1,d2
-	move.l	d1,d3
-	move.l	d1,d4
-	move.l	d1,d5
-	move.l	d1,d6
-	move.l	d1,d7
-	move.l	d1,a1
-	move.l	d1,a2
-	move.l	d1,a3
-	move.l	d1,a4
-	move.l	d1,a5
-	move.l	d1,a6
-	lea.l	$c00000,a0
-	move.l	a0,$95c.w
-	lea	$400(a0),a0
-	move.w	#512-1,d0
+	moveq	#0,d1
+	.irp	reg,d2,d3,d4,d5,d6,d7,a1,a2,a3,a4,a5,a6
+	move.l	d1,reg
+	.endm
+	lea	(G_VRAM+512*1024),a0
+	move	#512-1,d0
 NEW_G_CLR_ON_sub_loop:
 	.rept	19
 	movem.l	d1-d7/a1-a6,-(a0)	* 13*4=52*19=988
 	.endm
 	movem.l	d1-d7/a1-a2,-(a0)	* 9*4=36+988=1024
-	lea	$800(a0),a0
 	dbra	d0,NEW_G_CLR_ON_sub_loop
 
-	bclr.b	#$03,$00e80028
+	move.l	a0,($95c)		* active page address
+	bclr	#3,(CRTC_R20h)
 
-	moveq.l	#%11111000,d0
-	and.b	$00e80028,d0
-	moveq.l	#%00001111,d1
-	and.b	$93c.w,d1
-	cmp.b	#4,d1
+	moveq	#%11111000,d0
+	and.b	(CRTC_R20h),d0
+	moveq	#%00001111,d1
+	and.b	($93c),d1
+	cmpi.b	#4,d1
 	bcc	@f
-	bset.l	#2,d0
+	bset	#2,d0
 @@:
-	cmp.b	#8,d1
+	cmpi.b	#8,d1
 	bcs	@f
-	bset.l	#0,d0
+	bset	#0,d0
 @@:
-	cmp.b	#12,d1
+	cmpi.b	#12,d1
 	bcs	@f
-	bset.l	#1,d0
+	bset	#1,d0
 @@:
-	
-	moveq.l	#%00000111,d1
+	moveq	#%00000111,d1
 	and.b	d0,d1
-	move.b	d0,$e80028
-	move.w	d1,$e82400
+	move.b	d0,(CRTC_R20h)
+	move	d1,(VC_R0)
 
-	and.w	#%0000_0011,d0
+	andi	#%0000_0011,d0
 	bne	@f
 	bsr	NEW_G_CLR_ON_sub_palette_16
 	bra	NEW_G_CLR_ON_sub_end
 @@:
-	subq.w	#1,d0
+	subq	#1,d0
 	bne	@f
 	bsr	NEW_G_CLR_ON_sub_palette_256
 	bra	NEW_G_CLR_ON_sub_end
@@ -1948,20 +2009,21 @@ NEW_G_CLR_ON_sub_end:
 	bsr	_graphic_color_max
 	bsr	_graphic_line_length
 	bsr	_graphic_window
-	bclr.b	#$03,$00e80028
-	move.w	#$003f,$00e82600
-	movem.l	(sp)+,d1-d7/a1-a6
+	bclr	#3,(CRTC_R20h)
+	move	#$3f,(VC_R2)
+
+	POP	d1-d7/a1-a6
 	rts
 
 gpalette_data_16:
-	.dc.w	$0000,$5294,$0020,$003e,$0400,$07c0,$0420,$07fe
-	.dc.w	$8000,$f800,$8020,$f83e,$8400,$ffc0,$ad6a,$fffe
+	.dc	$0000,$5294,$0020,$003e,$0400,$07c0,$0420,$07fe
+	.dc	$8000,$f800,$8020,$f83e,$8400,$ffc0,$ad6a,$fffe
 
 	.even
 NEW_G_CLR_ON_sub_palette_16:
-	lea	$e82000,a0
-	lea	gpalette_data_16(pc),a1
-	moveq.l	#16-1,d0
+	lea	(GRAPHIC_PAL),a0
+	lea	(gpalette_data_16,pc),a1
+	moveq	#16/2-1,d0
 @@:
 	move.l	(a1)+,(a0)+
 	dbra	d0,@b
@@ -1974,30 +2036,30 @@ gpalette_data_256_rb:				* R, B は 3bit づつ
 
 	.even
 NEW_G_CLR_ON_sub_palette_256:
-	lea	gpalette_data_256_g,a0
-	lea	gpalette_data_256_rb,a1
-	lea	$e82000,a2
+	lea	(gpalette_data_256_g,pc),a0
+	lea	(gpalette_data_256_rb,pc),a1
+	lea	(GRAPHIC_PAL),a2
 
-	move.w	#4-1,d7
+	move	#4-1,d7
 NEW_G_CLR_ON_sub_palette_256_g_loop:
-	clr.w	d4
+	clr	d4
 	move.b	(a0,d7.w),d4
-	ror.w	#5,d4
+	ror	#5,d4
 
-		move.w	#8-1,d6
+		move	#8-1,d6
 NEW_G_CLR_ON_sub_palette_256_r_loop:
-		clr.w	d3
+		clr	d3
 		move.b	(a1,d6.w),d3
-		lsl.w	#6,d3
+		lsl	#6,d3
 
-			move.w	#8-1,d5
+			move	#8-1,d5
 NEW_G_CLR_ON_sub_palette_256_b_loop:
-			clr.w	d2
+			clr	d2
 			move.b	(a1,d5.w),d2	* B
-			add.w	d2,d2		* I ビットは０
-			or.w	d3,d2		* R
-			or.w	d4,d2		* G
-			move.w	d2,(a2)+
+			add	d2,d2		* I ビットは０
+			or	d3,d2		* R
+			or	d4,d2		* G
+			move	d2,(a2)+
 			dbra	d5,NEW_G_CLR_ON_sub_palette_256_b_loop
 
 		dbra	d6,NEW_G_CLR_ON_sub_palette_256_r_loop
@@ -2016,28 +2078,27 @@ tram_check_register	reg	d1-d2
 
 	.text
 tram_check:
-	movem.l	tram_check_register,-(sp)
-	moveq.l	#1,d1			* 内部からのコール
-	moveq.l	#-1,d2
-	bsr	_gm_internal_tgusemd
+	PUSH	tram_check_register
+	moveq	#1,d1			* 内部からのコール
+	bsr	_gm_internal_tgusemd_d2m1
 	move.b	d0,d1
-	clr.l	d0
-	cmp.b	#2,d1
+	moveq	#0,d0
+	cmpi.b	#2,d1
 	bne	tram_check_end
 
-	tst.b	force_flag
+	move.b	(force_flag,pc),d0
 	bne	tram_check_force	* 強制使用モード
 
-	moveq.l	#-1,d0			* アプリケーションで使用中
+	moveq	#-1,d0			* アプリケーションで使用中
 tram_check_end:
-	movem.l	(sp)+,tram_check_register
+	POP	tram_check_register
 	rts
 
 tram_check_force:
-	moveq.l	#1,d1			* 強制的にシステムで使います
-	moveq.l	#1,d2
+	moveq	#1,d1			* 強制的にシステムで使います
+	moveq	#1,d2
 	bsr	_gm_internal_tgusemd
-	clr.l	d0
+	moveq	#0,d0
 	bra	tram_check_end
 
 *-------------------------------------------------------------------------------
@@ -2051,28 +2112,29 @@ gram_check_register	reg	d1-d2
 
 	.text
 gram_check:
-	movem.l	gram_check_register,-(sp)
-	moveq.l	#0,d1			* 内部からのコール
-	moveq.l	#-1,d2
-	bsr	_gm_internal_tgusemd
+	PUSH	gram_check_register
+	moveq	#0,d1			* 内部からのコール
+	bsr	_gm_internal_tgusemd_d2m1
 	move.b	d0,d1
-	clr.l	d0
-	cmp.b	#2,d1
+	moveq	#0,d0
+	cmpi.b	#2,d1
 	bne	gram_check_end
-	moveq.l	#-1,d0			* アプリケーションで使用中
+	moveq	#-1,d0			* アプリケーションで使用中
 gram_check_end:
-	movem.l	(sp)+,gram_check_register
+	POP	gram_check_register
 	rts
 
 *-------------------------------------------------------------------------------
 * 内部モードで TGUSEMD をコールする
 
 	.text
+_gm_internal_tgusemd_d2m1:
+	moveq	#-1,d2
 _gm_internal_tgusemd:
-	swap.w	d1
-	move.w	#_GM_INTERNAL_MODE,d1
-	swap.w	d1
-	IOCS	__TGUSEMD
+	swap	d1
+	move	#_GM_INTERNAL_MODE,d1
+	swap	d1
+	IOCS	_TGUSEMD
 	rts
 
 *-------------------------------------------------------------------------------
@@ -2082,11 +2144,19 @@ mask_sub_register	reg	d1-d2/a0-a1
 
 	.text
 mask_sub:
-	movem.l	mask_sub_register,-(sp)
+	PUSH	mask_sub_register
 
-	IOCS	__MS_STAT
-	move.w	d0,-(sp)
-	IOCS	__MS_CUROF
+	lea	(mask_disable_flag,pc),a0
+	tst.b	(a0)+
+	bne	mask_sub_end
+	move.b	(mask_enable_flag-(mask_disable_flag+1),a0),d0
+	beq	mask_sub_end
+
+	st	(mask_set_flag-(mask_disable_flag+1),a0)
+
+	IOCS	_MS_STAT
+	move	d0,-(sp)
+	IOCS	_MS_CUROF
 
 	.ifdef	__DEBUG__
 COLOR	equ	8
@@ -2095,24 +2165,24 @@ COLOR	equ	0
 	.endif
 
 					* テキストパレット８～１１を変更する
-	lea	TEXTPALETTE_ADDRESS+2*1,a0
-	lea	TEXTPALETTE_ADDRESS+2*8,a1
+	lea	(TPALET+2*1),a0
+	lea	(2*8-2*1,a0),a1
 
 	_HSYNC_WAIT
-	move.w	#(COLOR<<11)+(COLOR<<6)+(COLOR<<1)+1,(a1)+
+	move	#(COLOR<<11)+(COLOR<<6)+(COLOR<<1)+1,(a1)+
 	_HSYNC_WAIT2
-	move.w	(a0)+,(a1)+
+	move	(a0)+,(a1)+
 	_HSYNC_WAIT2
 	move.l	(a0)+,(a1)+
 
-	moveq.l	#$ff,d0
+	moveq	#-1,d0
 	bsr	text_paint
 
-	move.w	(sp)+,d0
+	move	(sp)+,d0
 	beq	mask_sub_end
-	IOCS	__MS_CURON
+	IOCS	_MS_CURON
 mask_sub_end:
-	movem.l	(sp)+,mask_sub_register
+	POP	mask_sub_register
 	rts
 
 *-------------------------------------------------------------------------------
@@ -2122,28 +2192,31 @@ clear_sub_register	reg	d1-d2/a0-a1
 
 	.text
 clear_sub:
-	movem.l	clear_sub_register,-(sp)
+	PUSH	clear_sub_register
 
-	IOCS	__MS_STAT
-	move.w	d0,-(sp)
-	IOCS	__MS_CUROF
+	lea	(mask_set_flag,pc),a0
+	clr.b	(a0)
 
-	moveq.l	#$00,d0
+	IOCS	_MS_STAT
+	move	d0,-(sp)
+	IOCS	_MS_CUROF
+
+	moveq	#0,d0
 	bsr	text_paint
 
 					* テキストパレットをもとにもどす
-	lea	TEXTPALETTE_ADDRESS+2*14,a0
-	lea	TEXTPALETTE_ADDRESS+2*8,a1
+	lea	(TPALET+2*14),a0
+	lea	(2*8-2*14,a0),a1
 	_HSYNC_WAIT
 	move.l	(a0),(a1)+
 	_HSYNC_WAIT2
 	move.l	(a0),(a1)+
 
-	move.w	(sp)+,d0
+	move	(sp)+,d0
 	beq	clear_sub_end
-	IOCS	__MS_CURON
+	IOCS	_MS_CURON
 clear_sub_end:
-	movem.l	(sp)+,clear_sub_register
+	POP	clear_sub_register
 	rts
 
 *-------------------------------------------------------------------------------
@@ -2155,108 +2228,41 @@ text_paint_register	reg	d1-d5/a0-a1
 
 	.text
 text_paint:
-	movem.l	text_paint_register,-(sp)
-	move.l	d0,d1
-	move.l	d0,d2
-	move.l	d0,d3
-	move.l	d0,d4
+	PUSH	text_paint_register
+	.irp	reg,d1,d2,d3,d4
+	move.l	d0,reg
+	.endm
 
-	lea	TEXTVRAM_P3_ADDRESS,a0
-	move.w	#($0080*4),d5
-	move.w	#(512/4)-1,d0
+	lea	(TVRAM_P3),a0
+	move	#($0080*4),d5
+	move	#(512/4)-1,d0
 
-	lea	$e8002a,a1
-	move.w	(a1),-(sp)
+	lea	(CRTC_R21),a1
+	move	(a1),-(sp)
 	clr.b	(a1)
 text_paint_loop:
-	movem.l	d1-d4,(a0)		* テキストプレーン塗りつぶし
-	movem.l	d1-d4,$50(a0)
-	movem.l	d1-d4,$80(a0)
-	movem.l	d1-d4,$80+$50(a0)
-	movem.l	d1-d4,$80*2(a0)
-	movem.l	d1-d4,$80*2+$50(a0)
-	movem.l	d1-d4,$80*3(a0)
-	movem.l	d1-d4,$80*3+$50(a0)
-	add.w	d5,a0
+offset:	.set	0
+	.rept	4
+	movem.l	d1-d4,(offset,a0)	* テキストプレーン塗りつぶし
+	movem.l	d1-d4,(offset+$50,a0)
+offset:	.set	offset+$80
+	.endm
+	add	d5,a0
 	dbra	d0,text_paint_loop
-	move.w	(sp)+,(a1)
 
-	movem.l	(sp)+,text_paint_register
+	move	(sp)+,(a1)
+	POP	text_paint_register
 	rts
 
 *-------------------------------------------------------------------------------
 * ここまで常駐させる
 
-program_keep_end:
+graphic_palette_16:
+*	.ds	16
+graphic_data_16:	.equ	graphic_palette_16+16*2
+*	.ds	9
+program_keep_end:	.equ	graphic_data_16+9*2
 
-*-------------------------------------------------------------------------------
-* ここからメインプログラム
-
-	.bss
-	.even
-parameter_a0:
-	.ds.l	1
-parameter_a1:
-	.ds.l	1
-parameter_a2:
-	.ds.l	1
-parameter_a3:
-	.ds.l	1
-parameter_a4:
-	.ds.l	1
-program_top_address:
-	.ds.l	1
-program_size:
-	.ds.l	1
-
-	.stack
-	.even
-	.ds.l	1024
-user_stack:
-
-	.text
-program_start:
-	lea	user_stack,sp
-	movem.l	a0-a4,parameter_a0
-	lea	$10(a0),a0
-	sub.l	a0,a1
-	move.l	a1,-(sp)
-	move.l	a0,-(sp)
-	DOS	__SETBLOCK
-	addq.l	#8,sp
-	tst.l	d0
-	bmi	program_error_setblock
-	bsr	program_ver_check
-
-	move.l	parameter_a0,a0
-	move.l	parameter_a1,a1
-	lea	$100(a0),a0
-	move.l	a0,program_top_address
-	sub.l	a0,a1			* a1.l = プログラムサイズ
-	move.l	a1,program_size
-
-	move.l	parameter_a2,a0
-switch_check:
-	clr.l	d7			* d7.l = オプションスイッチ
-	move.b	(a0)+,d0
-	beq	switch_check_end
-switch_check_loop:
-	bsr	get_character
-	beq	switch_check_end
-	cmp.b	#'-',d0
-	beq	switch_check_option
-	bra	switch_check_error
-switch_check_option:
-	bsr	option_check
-	bra	switch_check_loop
-switch_check_error:
-	bset.l	#OPT_ERR,d7
-
-switch_check_end:
-	tst.l	d7
-	bne	exec_option
-	bset.l	#OPT_ERR,d7		* スイッチがなければエラー
-	bra	exec_option
 
 *-------------------------------------------------------------------------------
 * オプションスイッチの定義
@@ -2269,243 +2275,311 @@ OPT_E	.ds.b	1	* グラフィックオートマスク許可
 OPT_F	.ds.b	1	* テキストラムを強制使用する
 OPT_N	.ds.b	1	* ＧＮＣモードを有効にする
 OPT_K	.ds.b	1	* 電卓消去時にマスクをなおす
+OPT_G	.ds.b	1	* グラフィック使用モードを監視する
 OPT_V	.ds.b	1	* バージョン表示、メッセージの表示
 OPT_P	.ds.b	1	* メモリ常駐
 OPT_R	.ds.b	1	* 常駐解除
 OPT_A	.ds.b	1	* 主要機能の動作
 OPT_S	.ds.b	1	* 状態保存
 OPT_HLP	.ds.b	1	* ヘルプ表示
-OPT_ERR	equ	31	* スイッチ指定の間違いなど：常に最上位ビット
+	.fail	15<=$
+OPT_ERR	.equ	15	* スイッチ指定の間違いなど：常に最上位ビット
+
 	.text
+
+*-------------------------------------------------------------------------------
+* ここからメインプログラム
+
+	.text
+	.even
+
+program_start:
+	pea	(program_stack_end-program_text_start+STACK_SIZE+$f0).w
+	pea	(16,a0)
+	DOS	_SETBLOCK
+	movea.l	(sp)+,a0		*
+	adda.l	(sp)+,a0		* base of stack
+	tst.l	d0
+	bmi	program_error_setblock
+	lea	(a0),sp
+
+switch_check:
+	moveq	#0,d7			* d7.w = オプションスイッチ
+	bsr	option_check
+	cmpi	#1<<OPT_V,d7
+	beq	print_version
+	tst	d7
+	bne	exec_option
+	ori	#1<<OPT_HLP+1<<OPT_V,d7	* スイッチがなければ使用法表示
+	bra	exec_option
+
+print_version:
+		lea	(version_mes_end,pc),a0
+		.ifdef	__CRLF__
+		move.b	#CR,(a0)+
+		.endif
+		move.b	#LF,(a0)+
+		clr.b	(a0)
+		pea	(version_mes,pc)
+		DOS	_PRINT
+		DOS	_EXIT
 
 *-------------------------------------------------------------------------------
 
 	.text
+
 option_check:
-	tst.b	(a0)
-	bne	option_check_loop
-	bset.l	#OPT_ERR,d7
-	bra	option_check_end
+		pea	(1,a2)
+		bsr	GetArgCharInit
+		addq.l	#4,sp
 option_check_loop:
-	move.b	(a0),d0
-	beq	option_check_end
-	tst.b	(a0)+
-	bsr	toupper
-	cmp.b	#' ',d0
-	beq	option_check_end
-	cmp.b	#$09,d0
-	beq	option_check_end
-	cmp.b	#'M',d0
-	beq	opt_m
-	cmp.b	#'C',d0
-	beq	opt_c
-	cmp.b	#'D',d0
-	beq	opt_d
-	cmp.b	#'E',d0
-	beq	opt_e
-	cmp.b	#'F',d0
-	beq	opt_f
-	cmp.b	#'N',d0
-	beq	opt_n
-	cmp.b	#'K',d0
-	beq	opt_k
-	cmp.b	#'V',d0
-	beq	opt_v
-	cmp.b	#'P',d0
-	beq	opt_p
-	cmp.b	#'R',d0
-	beq	opt_r
-	cmp.b	#'A',d0
-	beq	opt_a
-	cmp.b	#'S',d0
-	beq	opt_s
-	cmp.b	#'H',d0
-	beq	opt_h
-	bra	opt_err
+		bsr	GetArgChar
+		tst.l	d0
+		beq	option_check_loop
+		bmi	option_check_end
+		cmpi.b	#'-',d0
+		bne	option_check_error
 
-opt_m:
-	btst.l	#OPT_C,d7		* -m/-c同時に設定するやつなんかいないだろうなぁ？
-	bne	opt_err
-	bset.l	#OPT_M,d7
-	bra	option_check_loop
+		bsr	GetArgChar
+		cmpi.b	#'-',d0
+		beq	long_option
+		bra	@f
+option_check_next:
+		bsr	GetArgChar
+option_check_next2:
+		tst.l	d0
+		beq	option_check_loop
+		bmi	option_check_end
+@@:
+		cmpi.b	#'?',d0
+		beq	opt_h
 
-opt_c:
-	btst.l	#OPT_M,d7
-	bne	opt_err
-	bset.l	#OPT_C,d7
-	bra	option_check_loop
-
-opt_d:
-	btst.l	#OPT_E,d7		* -d/-e・・・
-	bne	opt_err
-	bset.l	#OPT_D,d7
-	bra	option_check_loop
-
-opt_e:
-	btst.l	#OPT_D,d7
-	bne	opt_err
-	bset.l	#OPT_E,d7
-	bra	option_check_loop
-
-opt_f:
-	bset.l	#OPT_F,d7
-	bra	option_check_loop
-
-opt_n:
-	bset.l	#OPT_N,d7
-	bra	option_check_loop
-
-opt_k:
-	bset.l	#OPT_K,d7
-	bra	option_check_loop
-
-opt_v:
-	bset.l	#OPT_V,d7
-	bra	option_check_loop
-
-opt_p:
-	btst.l	#OPT_R,d7		* -p/-r・・・
-	bne	opt_err
-	bset.l	#OPT_P,d7
-	bra	option_check_loop
-
-opt_r:
-	btst.l	#OPT_P,d7
-	bne	opt_err
-	bset.l	#OPT_R,d7
-	bra	option_check_loop
-
-	.bss
-	.even
-opt_a_number:
-	.ds.l	1
-	.text
-opt_a:
-	bset.l	#OPT_A,d7
-	lea	opt_a_number,a1
-	moveq.l	#1,d0			* 読み取り数値の最大値
-	move.l	d0,(a1)			* デフォルトは１らしい
-	bsr	opt_number
-	bmi	opt_err			* 最大値超えたか数値の読み取りでエラーがでた
-	bra	option_check_loop
-
-	.bss
-	.even
-opt_s_number:
-	.ds.l	1
-	.text
-opt_s:
-	bset.l	#OPT_S,d7
-	lea	opt_s_number,a1
-	moveq.l	#2,d0			* 読み取り数値の最大値
-	move.l	d0,(a1)			* デフォルトは２
-	bsr	opt_number
-	bmi	opt_err			* 最大値超えたか数値の読み取りでエラーがでた
-	bra	option_check_loop
+		andi.b	#$df,d0
+		cmpi.b	#'M',d0
+		beq	opt_m
+		cmpi.b	#'C',d0
+		beq	opt_c
+		cmpi.b	#'D',d0
+		beq	opt_d
+		cmpi.b	#'E',d0
+		beq	opt_e
+		cmpi.b	#'F',d0
+		beq	opt_f
+		cmpi.b	#'N',d0
+		beq	opt_n
+		cmpi.b	#'K',d0
+		beq	opt_k
+		cmpi.b	#'G',d0
+		beq	opt_g
+		cmpi.b	#'V',d0
+		beq	opt_v
+		cmpi.b	#'P',d0
+		beq	opt_p
+		cmpi.b	#'R',d0
+		beq	opt_r
+		cmpi.b	#'A',d0
+		beq	opt_a
+		cmpi.b	#'S',d0
+		beq	opt_s
+		cmpi.b	#'H',d0
+		beq	opt_h
+option_check_error:
+		bset	#OPT_ERR,d7
+option_check_end:
+		rts
 
 opt_h:
-	bset.l	#OPT_HLP,d7
-	bset.l	#OPT_V,d7
-	bra	option_check_loop
+		ori	#1<<OPT_HLP+1<<OPT_V,d7
+		bra	option_check_next
 
-opt_err:
-	bset.l	#OPT_ERR,d7
-	bsr	skip_character		* 後のコマンドラインは評価しても無駄なので切る
-	bra	option_check_loop
+opt_m:
+		moveq	#OPT_M,d0
+		moveq	#OPT_C,d1
+		bra	@f
+opt_c:
+		moveq	#OPT_C,d0
+		moveq	#OPT_M,d1
+		bra	@f
+opt_d:
+		moveq	#OPT_D,d0
+		moveq	#OPT_E,d1
+		bra	@f
+opt_e:
+		moveq	#OPT_E,d0
+		moveq	#OPT_D,d1
+		bra	@f
+opt_p:
+		moveq	#OPT_P,d0
+		moveq	#OPT_R,d1
+		bra	@f
+opt_r:
+		moveq	#OPT_R,d0
+		moveq	#OPT_P,d1
+		bra	@f
+@@:
+		btst	d1,d7
+		bne	option_check_error	;-cm/-ed/-prは不可
+		bra	@f
+opt_f:
+		moveq	#OPT_F,d0
+		bra	@f
+opt_n:
+		moveq	#OPT_N,d0
+		bra	@f
+opt_k:
+		moveq	#OPT_K,d0
+		bra	@f
+opt_g:
+		moveq	#OPT_G,d0
+		bra	@f
+opt_v:
+		moveq	#OPT_V,d0
+		bra	@f
+@@:
+		bset	d0,d7
+		bra	option_check_next
 
-option_check_end:
-	rts
+long_option:
+		bsr	GetArgChar
+		moveq	#OPT_HLP,d1
+		lea	(str_help,pc),a1
+		cmp.b	(a1)+,d0
+		beq	long_option_loop
+		moveq	#OPT_V,d1
+		lea	(str_version,pc),a1
+		bra	@f
+long_option_loop:
+		bsr	GetArgChar
+@@:		cmp.b	(a1)+,d0
+		bne	option_check_error
+		tst.b	d0
+		bne	long_option_loop
+		bset	d1,d7
+		bra	option_check_loop
+
+		.data
+str_help:	.dc.b	'help',0
+str_version:	.dc.b	'version',0
+
+		.even
+opt_a_number:
+	.dc	1			* デフォルトは１
+	.text
+opt_a:
+	bset	#OPT_A,d7
+	lea	(opt_a_number,pc),a1
+	moveq	#1,d2			* 読み取り数値の最大値
+	bra	opt_number
+
+	.data
+	.even
+opt_s_number:
+	.dc	2			* デフォルトは２
+	.text
+opt_s:
+	bset	#OPT_S,d7
+	lea	(opt_s_number,pc),a1
+	moveq	#2,d2			* 読み取り数値の最大値
+	bra	opt_number
 
 *-------------------------------------------------------------------------------
 * 数値を読み取ってワークにしまう
 *
 * entry:
-*   d0.l = 最大数値
-*   a0.l = 文字列ポインタ
-*   a1.l = 数値を保存するワークエリアのアドレス
-* return:
-*   ccr:n = 0 読み取れた
-*   ccr:n = 1 エラーだな
+*   d2.l = 最大数値
+*   a1.l = 数値を保存するワークエリアのアドレス(１ワード)
 * broken:
-*   d0.l, d1.l
+*   d0.l/d1.l
 
 	.text
 opt_number:
-	bsr	skip_space		* スイッチの後にスペースがあってもいい
-	cmp.b	#'-',(a0)
-	beq	opt_number_next		* 次のスイッチらしい
-	bsr	option_get_number
-	tst.l	d1
-	beq	opt_number_end		* デフォルトだな
-	bmi	opt_number_end		* 最大値を超えたか数値の読み取りでエラーがでた
-	move.l	d0,(a1)
-opt_number_end:
-	tst.l	d1
-	rts
+	moveq	#0,d1
+opt_number_loop:
+	bsr	GetArgChar
+	cmpi.b	#'0',d0
+	bcs	option_check_next2
+	cmpi.b	#'9',d0
+	bhi	option_check_next2
 
-opt_number_next:
-	subq.l	#1,a0			* 行き過ぎだから戻る
-	cmp.b	#' ',(a0)
-	beq	@f
-	cmp.b	#$09,(a0)
-	beq	@f
-	addq.l	#1,a0			* スペース、タブ以外は無視する
-@@:
-	moveq.l	#0,d1
-	bra	opt_number_end
+	subi.b	#'0',d0
+	mulu	#10,d1
+	add	d0,d1
+	move	d1,(a1)
+	cmp.l	d1,d2
+	bcc	opt_number_loop
+	bra	option_check_error
 
 *-------------------------------------------------------------------------------
-* 数値の読み取り（１０進数）
-*
-* entry:
-*   d0.l = 最大数値
-*   a0.l = 文字列ポインタ
-* return:
-*   d0.l = 数値（エラー時や数値が続いてない時は不定）
-*   d1.l = 0 数値が続いていなかった
-*   d1.l > 0 数値が得られた
-*   d1.l < 0 異常な文字があったか最大数値を超えた
+* 引数収得
 
-option_get_number_register	reg	d2-d4
+		.text
+		.even
 
-option_get_number:
-	movem.l	option_get_number_register,-(sp)
-	move.l	d0,d4
-	clr.l	d0
-	clr.l	d1
-	clr.l	d3
-option_get_number_loop:
-	move.b	(a0),d1
-	beq	option_get_number_check
-	cmp.b	#' ',d1
-	beq	option_get_number_check
-	cmp.b	#$09,d1
-	beq	option_get_number_check
-	sub.b	#'0',d1
-	bmi	option_get_number_error	* 0 ～ 9の範囲でなければ当然エラーです。
-	cmp.b	#9+1,d1
-	bcc	option_get_number_error
-	moveq.l	#1,d3			* 読み取りフラグオン
-	add.l	d0,d0
-	move.l	d0,d2
-	add.l	d0,d0
-	add.l	d0,d0
-	add.l	d2,d0
-	add.l	d1,d0			* d0.l=d0.l*10 + d1.l
-	tst.b	(a0)+			* 文字列ポインタを１つ進める
-	bra	option_get_number_loop
+GetArgChar_p:	.dc.l	0
+GetArgChar_c:	.dc.b	0
+		.even
 
-option_get_number_check:
-	tst.l	d3
-	beq	option_get_number_end
-	cmp.l	d4,d0			* 最大値を超えてるかな？
-	bls	option_get_number_end
-option_get_number_error:
-	moveq.l	#-1,d3			* エラー
-option_get_number_end:
-	move.l	d3,d1
-	movem.l	(sp)+,option_get_number_register
-	rts
+GetArgChar:
+		movem.l	d1/a0-a1,-(sp)
+		moveq	#0,d0
+		lea	(GetArgChar_p,pc),a0
+		movea.l	(a0)+,a1
+		move.b	(a0),d0
+		bmi	GetArgChar_noarg
+GetArgChar_quate:
+		move.b	d0,d1
+GetArgChar_next:
+		move.b	(a1)+,d0
+		beq	GetArgChar_endarg
+		tst.b	d1
+		bne	GetArgChar_inquate
+		cmpi.b	#' ',d0
+		beq	GetArgChar_separate
+		cmpi.b	#"'",d0
+		beq	GetArgChar_quate
+		cmpi.b	#'"',d0
+		beq	GetArgChar_quate
+GetArgChar_end:
+		move.b	d1,(a0)
+		move.l	a1,-(a0)
+GetArgChar_abort:
+		movem.l	(sp)+,d1/a0-a1
+		rts
+GetArgChar_endarg:
+		st	(a0)
+		bra	GetArgChar_abort
+GetArgChar_noarg:
+		moveq	#1,d0
+		ror.l	#1,d0
+		bra	GetArgChar_abort
+
+GetArgChar_inquate:
+		cmp.b	d0,d1
+		bne	GetArgChar_end
+		clr.b	d1
+		bra	GetArgChar_next
+
+GetArgChar_separate:
+		cmp.b	(a1)+,d0
+		beq	GetArgChar_separate
+		moveq	#0,d0
+		tst.b	-(a1)
+		beq	GetArgChar_endarg
+		bra	GetArgChar_end
+
+GetArgCharInit:
+		movem.l	a0-a1,-(sp)
+		movea.l	(12,sp),a1
+GetArgCharInit_skip:
+		cmpi.b	#' ',(a1)+
+		beq	GetArgCharInit_skip
+		tst.b	-(a1)
+		lea	(GetArgChar_c,pc),a0
+		seq	(a0)
+		move.l	a1,-(a0)
+		movem.l	(sp)+,a0-a1
+		rts
+
 
 *-------------------------------------------------------------------------------
 * プログラムを実行しちゃうんです
@@ -2513,31 +2587,32 @@ option_get_number_end:
 	.data
 	.even
 exec_table:
-	.dc.l	title
-	.dc.l	error
-	.dc.l	help
-	.dc.l	force
-	.dc.l	gnc
-	.dc.l	den_mask
-	.dc.l	keep
-	.dc.l	release
-	.dc.l	active
-	.dc.l	save_state
-	.dc.l	disable
-	.dc.l	enable
-	.dc.l	mask
-	.dc.l	clear
-	.dc.l	0
+	.dc	     title-$
+	.dc	     error-$
+	.dc	      help-$
+	.dc	     force-$
+	.dc	       gnc-$
+	.dc	  den_mask-$
+	.dc	     gstop-$
+	.dc	      keep-$
+	.dc	   release-$
+	.dc	    active-$
+	.dc	save_state-$
+	.dc	   disable-$
+	.dc	    enable-$
+	.dc	      mask-$
+	.dc	     clear-$
+	.dc	0
 
 	.ifdef	__DEBUG__
 message_exit:
-	.dc.b	'debug:ちゃんと終わりました。',13,10
+	.dc.b	'debug:ちゃんと終わりました。',CRLF
 	.dc.b	0
 message_exit2:
-	.dc.b	'debug:エラーがでちゃったぁ。',13,10
+	.dc.b	'debug:エラーがでちゃったぁ。',CRLF
 	.dc.b	0
 message_keeppr:
-	.dc.b	'debug:メモリに常駐しちゃいます。',13,10
+	.dc.b	'debug:メモリに常駐しちゃいます。',CRLF
 	.dc.b	0
 	.endif
 
@@ -2549,119 +2624,64 @@ exec_option:
 	bset.l	#OPT_V,d7
 	.endif
 
-	lea	exec_table,a1
+	lea	(exec_table,pc),a1
 exec_option_loop:
-	move.l	(a1)+,d0
+	move	(a1)+,d0
 	beq	exec_option_end
-	move.l	d0,a0
-	jsr	(a0)
+	move.l	a1,-(sp)
+	jsr	(-2,a1,d0.w)
+	movea.l	(sp)+,a1
 	tst.l	d0
-	bne	exec_option_exit
-	bra	exec_option_loop
+	beq	exec_option_loop
+
+*exec_option_exit:
+	move	d0,-(sp)
+	tst.l	d0
+	bmi	exec_option_keeppr
+
+	.ifdef	__DEBUG__
+	pea	message_exit2
+	DOS	_PRINT
+	addq.l	#4,sp
+	.endif
+
+	DOS	_EXIT2
+
+exec_option_keeppr:
+	.ifdef	__DEBUG__
+	pea	message_keeppr
+	DOS	_PRINT
+	addq.l	#4,sp
+	.endif
+
+	pea	(program_keep_end-program_text_start).w
+	DOS	_KEEPPR
+
 exec_option_end:
 
 	.ifdef	__DEBUG__
 	pea	message_exit
-	DOS	__PRINT
+	DOS	_PRINT
 	addq.l	#4,sp
 	.endif
 
-	DOS	__EXIT
-exec_option_exit:
-	tst.l	d0
-	bmi	exec_option_keeppr
-	move.w	d0,-(sp)
+	DOS	_EXIT
 
-	.ifdef	__DEBUG__
-	pea	message_exit2
-	DOS	__PRINT
-	addq.l	#4,sp
-	.endif
-
-	DOS	__EXIT2
-exec_option_keeppr:
-	move.w	d0,-(sp)
-	move.l	d1,-(sp)
-
-	.ifdef	__DEBUG__
-	pea	message_keeppr
-	DOS	__PRINT
-	addq.l	#4,sp
-	.endif
-
-	DOS	__KEEPPR
-
-*-------------------------------------------------------------------------------
-* 空白文字以外の一文字を得る
-*
-* return:
-*   ccr:z  = 0 文字が得られた
-*   ccr:z  = 1 文字はありません
-*     d0.b = (文字コード)
-
-	.text
-get_character:
-	move.b	(a0)+,d0
-	beq	get_character_end
-	cmp.b	#' ',d0
-	beq	get_character
-	cmp.b	#$09,d0
-	beq	get_character
-get_character_end:
-	rts
-
-*-------------------------------------------------------------------------------
-* ヌル文字までポインタを進める
-
-	.text
-skip_character:
-	tst.b	(a0)
-	beq	skip_character_end
-	tst.b	(a0)+
-	bra	skip_character
-skip_character_end:
-	rts
-
-*-------------------------------------------------------------------------------
-* スペース、タブを読み飛ばす
-
-	.text
-skip_space:
-	tst.b	(a0)+
-	beq	skip_space_end
-	cmp.b	#' ',-1(a0)
-	beq	skip_space
-	cmp.b	#$09,-1(a0)
-	beq	skip_space
-skip_space_end:
-	subq.l	#1,a0
-	rts
-
-*-------------------------------------------------------------------------------
-* アルファベット小文字を大文字に変換
-
-	.text
-toupper:
-	cmp.b	#'a',d0
-	bcs	toupper_end
-	cmp.b	#'z'+1,d0
-	bcc	toupper_end
-	sub.b	#'a'-'A',d0
-toupper_end:
-	rts
 
 *-------------------------------------------------------------------------------
 * '-v' が設定されている時メッセージを表示する
 *
 * entry:
 *   $04(sp) = 文字列のアドレス
+* return:
+*   d0.l = 0
 
 	.text
 _vprint:
-	btst.l	#OPT_V,d7
+	btst	#OPT_V,d7
 	beq	_vprint_end
-	move.l	$04(sp),-(sp)
-	DOS	__PRINT
+	move.l	(4,sp),-(sp)
+	DOS	_PRINT
 	addq.l	#4,sp
 _vprint_end:
 	rts
@@ -2674,9 +2694,11 @@ _vprint_end:
 
 	.text
 _error_print:
-	move.l	$04(sp),-(sp)		* 見た目の問題・・・
-	DOS	__PRINT
+	move.l	d0,-(sp)
+	move.l	(8,sp),-(sp)		* 見た目の問題・・・
+	DOS	_PRINT
 	addq.l	#4,sp
+	move.l	(sp)+,d0
 _error_print_end:
 	rts
 
@@ -2685,23 +2707,15 @@ _error_print_end:
 
 	.text
 title:
-	movem.l	exec_register,-(sp)
-	clr.l	d0
-	btst.l	#OPT_V,d7
-	bne	title_print
-	btst.l	#OPT_ERR,d7
-	bne	title_print
-	btst.l	#OPT_HLP,d7
-	bne	title_print
-	bra	title_end
-
+	move	#1<<OPT_V+1<<OPT_ERR+1<<OPT_HLP,d0
+	and	d7,d0
+	beq	title_end		* どれかセットされていれば表示
 title_print:
-	pea	message_title
-	DOS	__PRINT
+	pea	(message_title,pc)
+	DOS	_PRINT
 	addq.l	#4,sp
-	clr.l	d0
 title_end:
-	movem.l	(sp)+,exec_register
+	moveq	#0,d0
 	rts
 
 *-------------------------------------------------------------------------------
@@ -2709,24 +2723,21 @@ title_end:
 
 	.data
 message_error:
-	.dc.b	'スイッチの指定が間違ってます。',13,10
-	.dc.b	'(-h でヘルプが表示されます。)',13,10
+	.dc.b	'スイッチの指定が間違ってます。',CRLF
 	.dc.b	0
 
 	.text
 error:
-	movem.l	exec_register,-(sp)
-	clr.l	d0
-	btst.l	#OPT_ERR,d7
-	beq	error_end
+	moveq	#0,d0
+	tst	d7			* btst	#OPT_ERR,d7
+	bpl	error_end		* beq	error_end
 
-	pea	message_error
+	pea	(message_error,pc)
 	bsr	_error_print
 	addq.l	#4,sp
 
-	moveq.l	#EXIT_ERROR_OPTION,d0
+	moveq	#EXIT_ERROR_OPTION,d0
 error_end:
-	movem.l	(sp)+,exec_register
 	rts
 
 *-------------------------------------------------------------------------------
@@ -2734,43 +2745,34 @@ error_end:
 
 	.data
 message_help:
-	.dc.b	'使用法: gm <スイッチ>',13,10
-	.dc.b	'スイッチ:',13,10
-	.dc.b	'	-m	マスク設定',13,10
-	.dc.b	'	-c	マスク解除',13,10
-	.dc.b	'	-d	オートマスク不許可',13,10
-	.dc.b	'	-e	オートマスク許可',13,10
-	.dc.b	'	-f	テキストラムを強制使用する',13,10
-	.dc.b	'	-n	ＧＮＣモードを有効にする',13,10
-	.dc.b	'	-k	電卓消去時にマスクをなおす',13,10
-	.dc.b	'	-p	メモリ常駐',13,10
-	.dc.b	'	-r	常駐解除',13,10
-	.dc.b	'	-a[n]	ＧＭ主要動作の制御 (0:停止 [1]:動作)',13,10
-	.dc.b	'	-s[n]	状態保存 (0:パレット 1:GVRAM [2]:両方)',13,10
-	.dc.b	'	-v	バージョン表示、メッセージ表示',13,10
-	.dc.b	'	-h	ヘルプメッセージ',13,10
-	.dc.b	13,10
-	.dc.b	'スイッチは大文字／小文字を区別しません。',13,10
-	.dc.b	13,10
+	.dc.b	' usage: gm <option>',CRLF
+	.dc.b	'option:',CRLF
+	.dc.b	'	-m	マスク設定',CRLF
+	.dc.b	'	-c	マスク解除',CRLF
+	.dc.b	'	-d	オートマスク不許可',CRLF
+	.dc.b	'	-e	オートマスク許可',CRLF
+*	.dc.b	'	-f	ＴＶＲＡＭを強制使用する',CRLF
+	.dc.b	'	-n	ＧＮＣモードを有効にする',CRLF
+	.dc.b	'	-k	電卓消去時にマスクをなおす',CRLF
+	.dc.b	'	-g	グラフィック使用モードを監視する',CRLF
+	.dc.b	'	-p	メモリ常駐',CRLF
+	.dc.b	'	-r	常駐解除',CRLF
+	.dc.b	'	-a[n]	ＧＭ主要動作の制御 (0:停止 [1]:動作)',CRLF
+	.dc.b	'	-s[n]	状態保存 (0:パレット 1:GVRAM [2]:両方)',CRLF
 	.dc.b	0
 
 	.text
 help:
-	movem.l	exec_register,-(sp)
-	clr.l	d0
-	btst.l	#OPT_HLP,d7
+	btst	#OPT_HLP,d7
 	beq	help_end
 
-	pea	message_help
-	bsr	_vprint
+	pea	(message_help,pc)
+	DOS	_PRINT
 	addq.l	#4,sp
 
-	moveq.l	#EXIT_HELP,d0
-	movem.l	(sp)+,exec_register
-	clr.l	d7			* その他のスイッチは無効です
-	movem.l	exec_register,-(sp)
+	DOS	_EXIT
 help_end:
-	movem.l	(sp)+,exec_register
+	moveq	#0,d0
 	rts
 
 *-------------------------------------------------------------------------------
@@ -2778,186 +2780,162 @@ help_end:
 
 	.data
 message_save_palette:
-	.dc.b	'パレットをＧＭ内部に保存します',13,10
+	.dc.b	'パレットをＧＭ内部に保存します',CRLF
 	.dc.b	0
 message_save_gvram:
-	.dc.b	'GVRAMをＧＭ内部に保存します',13,10
+	.dc.b	'GVRAMをＧＭ内部に保存します',CRLF
 	.dc.b	0
 message_save_64k:
-	.dc.b	'画面モードが６４Ｋモードなので保存しません',13,10
+	.dc.b	'画面モードが６４Ｋモードなので保存しません',CRLF
 	.dc.b	0
 
 	.text
 save_state:
-	movem.l	exec_register,-(sp)
-	clr.l	d0
-	btst.l	#OPT_S,d7
+	btst	#OPT_S,d7
 	beq	save_state_end
 
-	move.w	#_GM_VERSION_NUMBER,d1
-	moveq.l	#-1,d2
-	bsr	_gm_internal_tgusemd
-	cmp.l	#-1,d0
-	beq	save_state_not_keep
-	cmp.w	#_GM_INTERNAL_MODE,d0
+	move	#_GM_VERSION_NUMBER,d1
+	bsr	_gm_internal_tgusemd_d2m1
+	cmpi	#_GM_INTERNAL_MODE,d0
 	bne	save_state_not_keep
-	swap.w	d0
-	cmp.w	#$0080,d0
+	swap	d0
+	cmpi	#$0080,d0
 	bcs	save_state_not_support
 
-	move.w	#_GM_GRAPHIC_MODE_STATE,d1
-	moveq.l	#-1,d2			* ダミーデータ
-	bsr	_gm_internal_tgusemd
-	swap.w	d0
-	tst.w	d0
+	move	#_GM_GRAPHIC_MODE_STATE,d1
+	bsr	_gm_internal_tgusemd_d2m1
+	swap	d0
+	tst	d0
 	bne	save_state_64k		* ６４Ｋだからやめる
 
-	move.l	opt_s_number,d0
-	tst.l	d0
-	beq	@f
-	move.w	#_GM_GVRAM_SAVE,d1
-	moveq.l	#-1,d2
-	bsr	_gm_internal_tgusemd
-	pea	message_save_gvram
-	bsr	_vprint
-	addq.l	#4,sp
-@@:
-	cmp.l	#1,d0
-	beq	@f
-	move.w	#_GM_PALETTE_SAVE,d1
-	moveq.l	#-1,d2
-	bsr	_gm_internal_tgusemd
-	pea	message_save_palette
-	bsr	_vprint
-	addq.l	#4,sp
-@@:
-	clr.l	d0
+	move	(opt_s_number,pc),d0
+	beq	@f			* -s0ならパレットのみ
 
+	move	#_GM_GVRAM_SAVE,d1
+	bsr	_gm_internal_tgusemd_d2m1
+	pea	(message_save_gvram,pc)
+	bsr	_vprint
+	addq.l	#4,sp
+@@:
+	move	(opt_s_number,pc),d0
+	subq	#1,d0
+	beq	save_state_end		* -s1ならGVRAMのみ
+
+	move	#_GM_PALETTE_SAVE,d1
+	bsr	_gm_internal_tgusemd_d2m1
+
+	pea	(message_save_palette,pc)
+save_state_print_and_return0:
+	bsr	_vprint
+	addq.l	#4,sp
 save_state_end:
-	movem.l	(sp)+,exec_register
+	moveq	#0,d0
 	rts
 
 save_state_64k:
-	pea	message_save_64k
-	bsr	_vprint
-	addq.l	#4,sp
-	clr.l	d0
-	bra	save_state_end
+	pea	(message_save_64k,pc)
+	bra	save_state_print_and_return0
 
 save_state_not_keep:
-	pea	message_gm_not_keep
-	bsr	_error_print
-	addq.l	#4,sp
-	moveq.l	#EXIT_ERROR_NOT_KEEP,d0
-	bra	save_state_end
+	moveq	#EXIT_ERROR_NOT_KEEP,d0
+	pea	(message_gm_not_keep,pc)
+	bra	save_state_error_end
 
 save_state_not_support:
-	pea	message_gm_not_support
+	moveq	#EXIT_ERROR_NOT_SUPPORT,d0
+	pea	(message_gm_not_support,pc)
+save_state_error_end:
 	bsr	_error_print
 	addq.l	#4,sp
-	moveq.l	#EXIT_ERROR_NOT_SUPPORT,d0
-	bra	save_state_end
+	rts
 
 *-------------------------------------------------------------------------------
 * ＧＭ主要動作の制御
 
 	.data
 message_gm_not_keep:
-	.dc.b	'ＧＭは常駐していないようです',13,10
+	.dc.b	'ＧＭは常駐していないようです',CRLF
 	.dc.b	0
 message_gm_not_support:
-	.dc.b	'このバージョンではサポートされていません',13,10
+	.dc.b	'このバージョンではサポートされていません',CRLF
 	.dc.b	0
 message_gm_active:
-	.dc.b	'ＧＭの動作を開始します',13,10
+	.dc.b	'ＧＭの動作を開始します',CRLF
 	.dc.b	0
 message_gm_inactive:
-	.dc.b	'ＧＭの動作を停止します',13,10
+	.dc.b	'ＧＭの動作を停止します',CRLF
 	.dc.b	0
 
 	.text
 active:
-	movem.l	exec_register,-(sp)
-	clr.l	d0
-	btst.l	#OPT_A,d7
+	btst	#OPT_A,d7
 	beq	active_end
 
-	move.w	#_GM_VERSION_NUMBER,d1
-	moveq.l	#-1,d2
-	bsr	_gm_internal_tgusemd
-	cmp.l	#-1,d0
-	beq	active_not_keep
-	cmp.w	#_GM_INTERNAL_MODE,d0
+	move	#_GM_VERSION_NUMBER,d1
+	bsr	_gm_internal_tgusemd_d2m1
+	cmpi	#_GM_INTERNAL_MODE,d0
 	bne	active_not_keep
-	swap.w	d0
-	cmp.w	#$0078,d0
+	swap	d0
+	cmpi	#$0078,d0
 	bcs	active_not_support
 
-	move.l	opt_a_number,d0
+	move	(opt_a_number,pc),d0
 	bne	active_active
 
-	move.w	#_GM_INACTIVE,d1
-	moveq.l	#-1,d2
-	bsr	_gm_internal_tgusemd
-	pea	message_gm_inactive
-	bsr	_vprint
-	addq.l	#4,sp
-	clr.l	d0
-	bra	active_end
+	move	#_GM_INACTIVE,d1
+	bsr	_gm_internal_tgusemd_d2m1
+	pea	(message_gm_inactive,pc)
+	bra	@f
 
 active_active:
-	move.w	#_GM_ACTIVE,d1
-	moveq.l	#-1,d2
-	bsr	_gm_internal_tgusemd
-	pea	message_gm_active
+	move	#_GM_ACTIVE,d1
+	bsr	_gm_internal_tgusemd_d2m1
+	pea	(message_gm_active,pc)
+@@:
 	bsr	_vprint
 	addq.l	#4,sp
-	clr.l	d0
-
 active_end:
-	movem.l	(sp)+,exec_register
+	moveq	#0,d0
 	rts
 
 active_not_keep:
-	pea	message_gm_not_keep
-	bsr	_error_print
-	addq.l	#4,sp
-	moveq.l	#EXIT_ERROR_NOT_KEEP,d0
-	bra	active_end
+	moveq	#EXIT_ERROR_NOT_KEEP,d0
+	pea	(message_gm_not_keep,pc)
+	bra	active_error_end
 
 active_not_support:
-	pea	message_gm_not_support
+	moveq	#EXIT_ERROR_NOT_SUPPORT,d0
+	pea	(message_gm_not_support,pc)
+active_error_end:
 	bsr	_error_print
 	addq.l	#4,sp
-	moveq.l	#EXIT_ERROR_NOT_SUPPORT,d0
-	bra	active_end
+	rts
 
 *-------------------------------------------------------------------------------
 * テキストラムの強制使用フラグの設定
 
 	.data
 message_force:
-	.dc.b	'テキストラムを強制使用します。',13,10
+	.dc.b	'ＴＶＲＡＭを強制使用します。',CRLF
 	.dc.b	0
 
 	.text
 force:
-	movem.l	exec_register,-(sp)
-	clr.l	d0
-	clr.b	force_flag
-	btst.l	#OPT_F,d7
+	btst	#OPT_F,d7
 	beq	force_end
 
-	pea	message_force
+	pea	(message_force,pc)
 	bsr	_vprint
 	addq.l	#4,sp
-	move.w	#1,d1			* 内部からのコール
-	moveq.l	#1,d2
+
+	move	#1,d1			* 内部からのコール
+	moveq	#1,d2
 	bsr	_gm_internal_tgusemd
-	clr.l	d0
-	st.b	force_flag
+
+	lea	(force_flag,pc),a1
+	st	(a1)
 force_end:
-	movem.l	(sp)+,exec_register
+	moveq	#0,d0
 	rts
 
 *-------------------------------------------------------------------------------
@@ -2965,223 +2943,203 @@ force_end:
 
 	.data
 message_gnc_on:
-	.dc.b	'ＧＮＣモードを有効にします。',13,10
+	.dc.b	'ＧＮＣモードを有効にします。',CRLF
 	.dc.b	0
 message_gnc_error:
-	.dc.b	'-n は常駐する時しか意味がありません。',13,10
+	.dc.b	'-n は常駐する時しか意味がありません。',CRLF
 	.dc.b	0
 
 	.text
 gnc:
-	movem.l	exec_register,-(sp)
-	clr.l	d0
-	clr.b	gnc_flag
-	btst.l	#OPT_N,d7
+	btst	#OPT_N,d7
 	beq	gnc_end
-
-	btst.l	#OPT_P,d7
+	btst	#OPT_P,d7
 	beq	gnc_error
-
-	lea	program_id_name,a0
-	move.l	parameter_a0,a1
 	bsr	keep_check
-	tst.l	d0
 	bne	gnc_error2
 
-	pea	message_gnc_on
+	pea	(message_gnc_on,pc)
 	bsr	_vprint
 	addq.l	#4,sp
-	st.b	gnc_flag
-	clr.l	d0
+
+	lea	(gnc_flag,pc),a1
+	st	(a1)
 gnc_end:
-	movem.l	(sp)+,exec_register
+	moveq	#0,d0
 	rts
 
 gnc_error:
-	moveq.l	#EXIT_ERROR_GNCMODE,d0
+	moveq	#EXIT_ERROR_GNCMODE,d0
+	bra	gnc_error_end
+gnc_error2:
+	moveq	#0,d0			* すでに常駐している。
+	bra	gnc_error_end
+
 gnc_error_end:
-	move.l	d0,-(sp)
-	pea	message_gnc_error
+	pea	(message_gnc_error,pc)
 	bsr	_error_print
 	addq.l	#4,sp
-	move.l	(sp)+,d0
-	bra	gnc_end
-
-gnc_error2:
-	clr.l	d0			* すでに常駐している。
-	bra	gnc_error_end
+	rts
 
 *-------------------------------------------------------------------------------
 * 電卓消去時のマスク使用フラグの設定
 
 	.data
 message_den_mask_on:
-	.dc.b	'電卓消去時にマスクします。',13,10
+	.dc.b	'電卓消去時にマスクします。',CRLF
 	.dc.b	0
 message_den_mask_error:
-	.dc.b	'-k は常駐する時しか意味がありません。',13,10
+	.dc.b	'-k は常駐する時しか意味がありません。',CRLF
 	.dc.b	0
 
 	.text
 den_mask:
-	movem.l	exec_register,-(sp)
-	clr.l	d0
-	clr.b	den_mask_flag
-	btst.l	#OPT_K,d7
+	btst	#OPT_K,d7
 	beq	den_mask_end
-
-	btst.l	#OPT_P,d7
+	btst	#OPT_P,d7
 	beq	den_mask_error
-
-	lea	program_id_name,a0
-	move.l	parameter_a0,a1
 	bsr	keep_check
-	tst.l	d0
 	bne	den_mask_error2
 
-	pea	message_den_mask_on
+	pea	(message_den_mask_on,pc)
 	bsr	_vprint
 	addq.l	#4,sp
-	st.b	den_mask_flag
-	clr.l	d0
+
+	lea	(den_mask_flag,pc),a1
+	st	(a1)
 den_mask_end:
-	movem.l	(sp)+,exec_register
+	moveq	#0,d0
 	rts
 
 den_mask_error:
-	moveq.l	#EXIT_ERROR_DEN_MASK,d0
+	moveq	#EXIT_ERROR_DEN_MASK,d0
+	bra	den_mask_error_end
+den_mask_error2:
+	moveq	#0,d0
+	bra	den_mask_error_end
+
 den_mask_error_end:
-	move.l	d0,-(sp)
-	pea	message_den_mask_error
+	pea	(message_den_mask_error,pc)
 	bsr	_error_print
 	addq.l	#4,sp
-	move.l	(sp)+,d0
-	bra	den_mask_end
+	rts
 
-den_mask_error2:
-	clr.l	d0
-	bra	den_mask_error_end
+*-------------------------------------------------------------------------------
+* グラフィック画面使用モードの監視フラグの設定
+
+	.data
+message_gstop_on:
+	.dc.b	'グラフィック画面の使用モードを監視します。',CRLF
+	.dc.b	0
+message_gstop_error:
+	.dc.b	'-g は常駐する時しか意味がありません。',CRLF
+	.dc.b	0
+
+	.text
+
+gstop:
+	btst	#OPT_G,d7
+	beq	gstop_end
+	btst	#OPT_P,d7
+	beq	gstop_error
+	bsr	keep_check
+	bne	gstop_error2
+
+	pea	(message_gstop_on,pc)
+	bsr	_vprint
+	addq.l	#4,sp
+
+	lea	(gstop_flag,pc),a1
+	st	(a1)
+gstop_end:
+	moveq	#0,d0
+	rts
+
+gstop_error:
+	moveq	#EXIT_ERROR_GSTOP,d0
+	bra	gstop_error_end
+gstop_error2:
+	moveq	#0,d0
+	bra	gstop_error_end
+
+gstop_error_end:
+	pea	(message_gstop_error,pc)
+	bsr	_error_print
+	addq.l	#4,sp
+	rts
 
 *-------------------------------------------------------------------------------
 * 常駐していなければ常駐終了になるようにする
-
-	.data
-message_keep:
-	.dc.b	'プログラムを常駐します。',13,10
-	.dc.b	0
-message_keep_error0:
-	.dc.b	'プログラムは常駐していません。',13,10
-	.dc.b	0
-message_keep_error1:
-	.dc.b	'すでに常駐しています。',13,10
-	.dc.b	0
-message_keep_error2:
-	.dc.b	'バージョンの違うプログラムが常駐しています。',13,10
-	.dc.b	0
-message_keep_error3:
-	.dc.b	'内部エラーです。',13,10
-	.dc.b	0
-	.even
-message_keep_table:
-	.dc.l	message_keep_error0
-	.dc.l	message_keep_error1
-	.dc.l	message_keep_error2
-	.dc.l	message_keep_error3
-	.dc.l	0
 
 keep_register	reg	d7/a1
 
 	.text
 keep:
-	movem.l	exec_register,-(sp)
-	clr.l	d0
-	btst.l	#OPT_P,d7
+	moveq	#0,d0
+	btst	#OPT_P,d7
 	beq	keep_end
 
-	lea	program_id_name,a0
-	move.l	parameter_a0,a1
 	bsr	keep_check
-	tst.l	d0
 	bne	keep_error
 
 	bsr	keep_sub
 	tst.l	d0
 	bmi	keep_error		* その他のエラー（ユーザー定義）
 
-	pea	message_keep
+	pea	(message_keep,pc)
 	bsr	_vprint
 	addq.l	#4,sp
 
 	move.l	#$8000_0100,d0		* 上位はDOS_KEEPPRするかのフラグ：下位は終了コード
-	move.l	#program_stack_end,d2
-	sub.l	#program_keep_end,d2	* d2.l = 非常駐部のサイズ
-	move.l	program_size,d1
-	sub.l	d2,d1			* d1.l = 常駐サイズ
-	movem.l	(sp)+,exec_register
-	clr.l	d7			* その他のスイッチは無効です
-	movem.l	exec_register,-(sp)
+	moveq	#0,d7			* その他のスイッチは無効です
 keep_end:
-	movem.l	(sp)+,exec_register
 	rts
 
 keep_error:
 	bsr	keep_error_print
-	moveq.l	#EXIT_ERROR_KEEP,d0
-	bra	keep_end
+	moveq	#EXIT_ERROR_KEEP,d0
+	rts
 
 *-------------------------------------------------------------------------------
 * 常駐チェック時のエラーメッセージを表示する
 
-	.text
 keep_error_print:
-	cmp.l	#4,d0
+	subq.l	#4,d0
 	bcc	keep_error_print_end		* 数値が規定外（ユーザ定義）です
-	lea	message_keep_table,a0
-	lsl.w	#2,d0
-	move.l	(a0,d0.w),-(sp)
+	add	d0,d0
+	lea	(message_keep_table_end,pc,d0.w),a0
+	adda	(a0),a0
+	move.l	a0,-(sp)
 	bsr	_error_print
 	addq.l	#4,sp
 keep_error_print_end:
 	rts
 
-*-------------------------------------------------------------------------------
-* マクロ定義
+	.dc	message_keep_error0-$
+	.dc	message_keep_error1-$
+	.dc	message_keep_error2-$
+	.dc	message_keep_error3-$
+message_keep_table_end:
 
-_IOCS_VECTOR_CHANGE	.macro	_a1,_a2,_n1
-* _a1 = 新しい処理アドレス
-* _a2 = 変更前のアドレス保存場所
-* _n1 = 変更するコールナンバ
+	.data
+message_keep:
+	.dc.b	'プログラムを常駐します。',CRLF
+	.dc.b	0
+message_keep_error0:
+	.dc.b	'プログラムは常駐していません。',CRLF
+	.dc.b	0
+message_keep_error1:
+	.dc.b	'すでに常駐しています。',CRLF
+	.dc.b	0
+message_keep_error2:
+	.dc.b	'バージョンの違うプログラムが常駐しています。',CRLF
+	.dc.b	0
+message_keep_error3:
+	.dc.b	'内部エラーです。',CRLF
+	.dc.b	0
+	.even
 
-_IOCS_VECTOR_CHANGE_COUNT	set	_IOCS_VECTOR_CHANGE_COUNT+1
-
-	pea.l	_a1
-	move.w	#$100+_n1,-(sp)
-	DOS	__INTVCS
-	addq.l	#6,sp
-	move.l	d0,_a2
-	.endm
-
-*-------------------------------------------------------------------------------
-* マクロ定義
-
-_TO_SUPER	.macro
-* スーパーバイザーモードへ
-	clr.l	-(sp)
-	DOS	__SUPER
-	addq.l	#4,sp
-	move.l	d0,-(sp)
-	.endm
-
-_TO_USER	.macro
-		.local	super_end
-* ユーザーモードへ
-	move.l	(sp)+,d0
-	bmi	super_end
-	move.l	d0,-(sp)
-	DOS	__SUPER
-	addq.l	#4,sp
-super_end:
-	.endm
+	.text
 
 *-------------------------------------------------------------------------------
 * 実際にベクタの変更などを行う
@@ -3194,89 +3152,51 @@ super_end:
 
 	.text
 keep_sub:
-	movem.l	keep_register,-(sp)
-
 	bsr	tram_check
 	tst.l	d0
 	bne	keep_sub_tram_used
 
-	.ifdef	__DEBUG__
-	.lall
-	.endif
-
-	pea.l	NEW_EXIT		* _EXIT, _EXIT2 を乗っ取る ver. 0.81
-	move.w	#__EXIT,-(sp)
-	DOS	__INTVCS
+	lea	(vector_table_top,pc),a0
+	bra	vector_hook_start
+vector_hook_loop:
+	pea	(a0,d0.w)
+	move.l	(a0),d0
+	move	d0,-(sp)
+	DOS	_INTVCS
 	addq.l	#6,sp
-	move.l	d0,vector_EXIT
+	move.l	d0,(a0)+
+vector_hook_start:
+	move	(a0),d0
+	bne	vector_hook_loop
 
-	pea.l	NEW_EXIT2
-	move.w	#__EXIT2,-(sp)
-	DOS	__INTVCS
-	addq.l	#6,sp
-	move.l	d0,vector_EXIT2
-
-	pea.l	NEW_trap15		* trap15を乗っ取る ver. 0.67
-	move.w	#$2f,-(sp)
-	DOS	__INTVCS
-	addq.l	#6,sp
-	move.l	d0,vector_trap15
-
-_IOCS_VECTOR_CHANGE_COUNT	set	0
-	_IOCS_VECTOR_CHANGE	NEW_TPALET,vector_TPALET,__TPALET
-	_IOCS_VECTOR_CHANGE	NEW_TPALET2,vector_TPALET2,__TPALET2
-	_IOCS_VECTOR_CHANGE	NEW_CRTMOD,vector_CRTMOD,__CRTMOD
-	_IOCS_VECTOR_CHANGE	NEW_TGUSEMD,vector_TGUSEMD,__TGUSEMD
-	_IOCS_VECTOR_CHANGE	NEW_G_CLR_ON,vector_G_CLR_ON,__G_CLR_ON
-	_IOCS_VECTOR_CHANGE	NEW_B_KEYSNS,vector_B_KEYSNS,__B_KEYSNS
-	_IOCS_VECTOR_CHANGE	NEW_DENSNS,vector_DENSNS,__DENSNS
-	_IOCS_VECTOR_CHANGE	NEW_TXXLINE,vector_TXXLINE,__TXXLINE
-	_IOCS_VECTOR_CHANGE	NEW_TXYLINE,vector_TXYLINE,__TXYLINE
-	_IOCS_VECTOR_CHANGE	NEW_TXBOX,vector_TXBOX,__TXBOX
-	_IOCS_VECTOR_CHANGE	NEW_B_WPOKE,vector_B_WPOKE,__B_WPOKE
-
-	.ifdef	__DEBUG__
-	.sall
-	.endif
-
-	_TO_SUPER
-	bsr	clear_sub
-	clr.b	mask_set_flag
-	clr.b	mask_halt_flag
-	clr.b	mask_disable_flag
-	st.b	mask_enable_flag	* デフォルトはオートマスク許可
-	clr.b	mask_request_flag
-
-	clr.b	graphic_data_16_flag	* 常駐パレット用のフラグ
-	clr.b	graphic_palette_16_flag
-
-
-	clr.b	wpoke_flag
-	clr.b	check_force_flag
+	pea	(clear_sub,pc)
+	DOS	_SUPER_JSR
+	addq.l	#4,sp
 
 	bsr	active			* 動作制御、デフォルトは動作オン
 	bsr	disable			* 常駐時から設定できるように
 	bsr	enable
 
-	cmp.w	#$0316,$e80028
+	lea	(CRTC_R20),a1
+	IOCS	_B_WPEEK
+	cmpi	#$0316,d0
 	bne	keep_sub_not_64k
-	tst.b	mask_enable_flag
+	move.b	(mask_enable_flag,pc),d0
 	beq	keep_sub_not_64k
-	bsr	mask_sub
-	st.b	mask_set_flag
-keep_sub_not_64k:
-	_TO_USER
 
-	clr.l	d0
+	pea	(mask_sub,pc)
+	DOS	_SUPER_JSR
+	addq.l	#4,sp
+keep_sub_not_64k:
+	moveq	#0,d0
 keep_sub_end:
-	movem.l	(sp)+,keep_register
 	rts
 
 keep_sub_tram_used:
-	pea	message_tram_used	* テキストラム使用中
+	pea	(message_tram_used,pc)	* テキストラム使用中
 	bsr	_error_print
 	addq.l	#4,sp
-	moveq.l	#-1,d0
+	moveq	#-1,d0
 	bra	keep_sub_end
 
 *-------------------------------------------------------------------------------
@@ -3284,122 +3204,75 @@ keep_sub_tram_used:
 
 	.data
 message_release:
-	.dc.b	'プログラムを常駐解除しました。',13,10
+	.dc.b	'プログラムを常駐解除しました。',CRLF
 	.dc.b	0
 message_release_error:
-	.dc.b	'プログラムの常駐解除ができません。',13,10
+	.dc.b	'プログラムの常駐解除ができません。',CRLF
 	.dc.b	0
 message_release_mfree_error:
-	.dc.b	'メモリ解放に失敗しました。',13,10
+	.dc.b	'メモリ解放に失敗しました。',CRLF
 	.dc.b	0
 message_release_vector_error:
-	.dc.b	'ベクタが書き換えられています。',13,10
+	.dc.b	'ベクタが書き換えられています。',CRLF
 	.dc.b	0
 
 release_register	reg	d7/a1
 
 	.text
 release:
-	movem.l	exec_register,-(sp)
-	clr.l	d0
-	btst.l	#OPT_R,d7
+	moveq	#0,d0
+	btst	#OPT_R,d7
 	beq	release_end
 
-	lea	program_id_name,a0
-	move.l	parameter_a0,a1
 	bsr	keep_check
-	cmp.l	#1,d0
+	moveq	#1,d1
+	cmp.l	d0,d1
 	bne	release_keep_error
 
 	bsr	release_sub
-	cmp.l	#-1,d0
-	beq	release_vector_error
+	moveq	#-1,d1
+	cmp.l	d0,d1
+	beq	release_vector_error	* ベクタが変更されている
 	tst.l	d0
-	bmi	release_error		* その他のエラー（ユーザー定義）
+	bmi	release_error		* その他のエラー(ユーザー定義)
 
-	pea	$10(a0)
-	DOS	__MFREE			* メモリ解放
-	addq.l	#4,sp
-	tst.l	d0
+	pea	(16,a0)
+	DOS	_MFREE			* メモリ解放
+	move.l	d0,(sp)+
 	bmi	release_mfree_error
 
-	pea	message_release
+	pea	(message_release,pc)
 	bsr	_vprint
 	addq.l	#4,sp
 
-	clr.l	d0
-	movem.l	(sp)+,exec_register
-	clr.l	d7			* その他のスイッチは無効です
-	movem.l	exec_register,-(sp)
-	move.l	#$10000,d0		* d0.l hw != 0:release ok
+	moveq	#0,d7			* その他のスイッチは無効です
+	moveq	#1,d0			* d0.l hw != 0:release ok
+	swap	d0			*
 release_end:
-	movem.l	(sp)+,exec_register
 	rts
 
 release_keep_error:
 	bsr	keep_error_print
-	moveq.l	#EXIT_ERROR_RELEASE,d0
-	bra	release_end
-
-release_error:
-	pea	message_release_error
-	bsr	_error_print
-	addq.l	#4,sp
-	moveq.l	#EXIT_ERROR_RELEASE,d0
-	bra	release_end
+	moveq	#EXIT_ERROR_RELEASE,d0
+	rts
 
 release_vector_error:
-	pea	message_release_vector_error
-	bsr	_error_print
-	addq.l	#4,sp
-	bra	release_error
-
+	pea	(message_release_vector_error,pc)
+	bra	@f
 release_mfree_error:
-	pea	message_release_mfree_error
+	pea	(message_release_mfree_error,pc)
+@@:
 	bsr	_error_print
 	addq.l	#4,sp
 	bra	release_error
 
-*-------------------------------------------------------------------------------
-* マクロ定義
+release_error:
+	pea	(message_release_error,pc)
+	bsr	_error_print
+	addq.l	#4,sp
+	moveq	#EXIT_ERROR_RELEASE,d0
+	rts
 
-_IOCS_VECTOR_CHECK	.macro	_p1,_a1,_n1,_j1
-* a0 = 常駐プログラムのメモリ管理ポインタ
-* a1 = 自分のメモリ管理ポインタ
-* _p1 = 使用するレジスタ
-* _a1 = 設定したアドレス
-* _n1 = 変更したコールナンバ
-* _j1 = 一致しない時のジャンプ先
-
-_IOCS_VECTOR_CHECK_COUNT	set	_IOCS_VECTOR_CHECK_COUNT+1
-
-	lea.l	_a1,_p1
-	sub.l	a1,_p1
-	lea.l	(a0,_p1.l),_p1
-	move.w	#$100+_n1,-(sp)
-	DOS	__INTVCG
-	addq.l	#2,sp
-	cmp.l	d0,_p1
-	bne	_j1
-	.endm
-
-_IOCS_VECTOR_RESTORE	.macro	_p1,_a1,_n1
-* a0 = 常駐プログラムのメモリ管理ポインタ
-* a1 = 自分のメモリ管理ポインタ
-* _p1 = 使用するレジスタ
-* _a1 = 変更前のアドレス保存場所
-* _n1 = 変更したコールナンバ
-
-_IOCS_VECTOR_RESTORE_COUNT	set	_IOCS_VECTOR_RESTORE_COUNT+1
-
-	lea	_a1,_p1
-	sub.l	a1,_p1
-	move.l	(a0,_p1.l),_p1
-	pea	(_p1)
-	move.w	#$100+_n1,-(sp)
-	DOS	__INTVCS
-	addq.l	#6,sp
-	.endm
 
 *-------------------------------------------------------------------------------
 * ベクタをもとに戻す
@@ -3413,260 +3286,170 @@ _IOCS_VECTOR_RESTORE_COUNT	set	_IOCS_VECTOR_RESTORE_COUNT+1
 
 	.text
 release_sub:
-	movem.l	release_register,-(sp)
+	lea	(program_text_start-$100,pc),a1
+	lea	(vector_table_top,pc),a3
+	lea	(a3),a4
+	bra	vector_check_start
+vector_check_loop:
+	lea	(-2,a3,d0.w),a2
+	suba.l	a1,a2
+	adda.l	a0,a2
+	move	(a3)+,-(sp)
+	DOS	_INTVCG
+	addq.l	#2,sp
+	cmpa.l	d0,a2
+	bne	release_sub_error
+vector_check_start:
+	move	(a3)+,d0
+	bne	vector_check_loop
+
+	lea	($100+vector_table_top-program_text_start,a0),a2
+	bra	vector_remove_start
+vector_remove_loop:
+	move.l	(a2)+,-(sp)
+	move	(a4)+,-(sp)
+	DOS	_INTVCS
+	addq.l	#6,sp
+vector_remove_start:
+	tst	(a4)+
+	bne	vector_remove_loop
 
 	bsr	tram_check
 	tst.l	d0
-	bne	release_sub_tram_used
+	bne	@f			* T_VRAM使用中に解除する場合はマスクを剥さない
 
-	.ifdef	__DEBUG__
-	.lall
-	.endif
-
-	move.l	parameter_a0,a1
-_IOCS_VECTOR_CHECK_COUNT	set	0
-	_IOCS_VECTOR_CHECK	a2,NEW_TPALET,__TPALET,release_sub_error
-	_IOCS_VECTOR_CHECK	a2,NEW_TPALET2,__TPALET2,release_sub_error
-	_IOCS_VECTOR_CHECK	a2,NEW_CRTMOD,__CRTMOD,release_sub_error
-	_IOCS_VECTOR_CHECK	a2,NEW_TGUSEMD,__TGUSEMD,release_sub_error
-	_IOCS_VECTOR_CHECK	a2,NEW_G_CLR_ON,__G_CLR_ON,release_sub_error
-	_IOCS_VECTOR_CHECK	a2,NEW_B_KEYSNS,__B_KEYSNS,release_sub_error
-	_IOCS_VECTOR_CHECK	a2,NEW_DENSNS,__DENSNS,release_sub_error
-	_IOCS_VECTOR_CHECK	a2,NEW_TXXLINE,__TXXLINE,release_sub_error
-	_IOCS_VECTOR_CHECK	a2,NEW_TXYLINE,__TXYLINE,release_sub_error
-	_IOCS_VECTOR_CHECK	a2,NEW_TXBOX,__TXBOX,release_sub_error
-	_IOCS_VECTOR_CHECK	a2,NEW_B_WPOKE,__B_WPOKE,release_sub_error
-	.fail	_IOCS_VECTOR_CHECK_COUNT.ne._IOCS_VECTOR_CHANGE_COUNT
-
-	lea.l	NEW_trap15,a2		* trap15のチェック ver. 0.67
-	sub.l	a1,a2
-	lea.l	(a0,a2.l),a2
-	move.w	#$2f,-(sp)
-	DOS	__INTVCG
-	addq.l	#2,sp
-	cmp.l	d0,a2
-	bne	release_sub_error
-
-	lea	NEW_EXIT,a2		* _EXIT, _EXIT2 のチェック ver. 0.81
-	sub.l	a1,a2
-	lea.l	(a0,a2.l),a2
-	move.w	#__EXIT,-(sp)
-	DOS	__INTVCG
-	addq.l	#2,sp
-	cmp.l	d0,a2
-	bne	release_sub_error
-
-	lea	NEW_EXIT2,a2
-	sub.l	a1,a2
-	lea.l	(a0,a2.l),a2
-	move.w	#__EXIT2,-(sp)
-	DOS	__INTVCS
-	addq.l	#2,sp
-	cmp.l	d0,a2
-	bne	release_sub_error
-
-_IOCS_VECTOR_RESTORE_COUNT	set	0
-	_IOCS_VECTOR_RESTORE	a2,vector_TPALET,__TPALET
-	_IOCS_VECTOR_RESTORE	a2,vector_TPALET2,__TPALET2
-	_IOCS_VECTOR_RESTORE	a2,vector_CRTMOD,__CRTMOD
-	_IOCS_VECTOR_RESTORE	a2,vector_TGUSEMD,__TGUSEMD
-	_IOCS_VECTOR_RESTORE	a2,vector_G_CLR_ON,__G_CLR_ON
-	_IOCS_VECTOR_RESTORE	a2,vector_B_KEYSNS,__B_KEYSNS
-	_IOCS_VECTOR_RESTORE	a2,vector_DENSNS,__DENSNS
-	_IOCS_VECTOR_RESTORE	a2,vector_TXXLINE,__TXXLINE
-	_IOCS_VECTOR_RESTORE	a2,vector_TXYLINE,__TXYLINE
-	_IOCS_VECTOR_RESTORE	a2,vector_TXBOX,__TXBOX
-	_IOCS_VECTOR_RESTORE	a2,vector_B_WPOKE,__B_WPOKE
-	.fail	_IOCS_VECTOR_RESTORE_COUNT.ne._IOCS_VECTOR_CHANGE_COUNT
-
-	lea	vector_trap15,a2	* trap15を戻す ver. 0.67
-	sub.l	a1,a2
-	move.l	(a0,a2.l),a2
-	pea	(a2)
-	move.w	#$2f,-(sp)
-	DOS	__INTVCS
-	addq.l	#6,sp
-
-	lea	vector_EXIT,a2		* _EXIT, _EXIT2 を戻す ver. 0.81
-	sub.l	a1,a2
-	move.l	(a0,a2.l),a2
-	pea	(a2)
-	move.w	#__EXIT,-(sp)
-	DOS	__INTVCS
-	addq.l	#6,sp
-
-	lea	vector_EXIT2,a2
-	sub.l	a1,a2
-	move.l	(a0,a2.l),a2
-	pea	(a2)
-	move.w	#__EXIT2,-(sp)
-	DOS	__INTVCS
-	addq.l	#6,sp
-
-	.ifdef	__DEBUG__
-	.sall
-	.endif
-
-	_TO_SUPER
-	bsr	clear_sub
-	_TO_USER
-
-	clr.l	d0
-release_sub_end:
-	movem.l	(sp)+,release_register
+	pea	(clear_sub,pc)
+	DOS	_SUPER_JSR
+	addq.l	#4,sp
+@@:
+	moveq	#0,d0
 	rts
 
 release_sub_error:
-	moveq.l	#-1,d0			* ベクタが書き換えられていた
-	bra	release_sub_end
-
-release_sub_tram_used:
-	pea	message_tram_used	* テキストラム使用中
-	bsr	_error_print
-	addq.l	#4,sp
-	moveq.l	#-2,d0
-	bra	release_sub_end
+	moveq	#-1,d0			* ベクタが書き換えられていた
+	rts
 
 *-------------------------------------------------------------------------------
 
 	.data
 message_disable:
-	.dc.b	'これ以後のオートマスクを許可しません。',13,10
+	.dc.b	'これ以後のオートマスクを許可しません。',CRLF
 	.dc.b	0
 message_disable_not_keep:
-	.dc.b	'常駐してないと意味がありません。',13,10
+	.dc.b	'常駐してないと意味がありません。',CRLF
 	.dc.b	0
 
 	.text
 disable:
-	movem.l	exec_register,-(sp)
-	clr.l	d0
-	btst.l	#OPT_D,d7
+	btst	#OPT_D,d7
 	beq	disable_end
 
-	move.w	#_GM_VERSION_NUMBER,d1
-	moveq.l	#-1,d2
-	bsr	_gm_internal_tgusemd
-	cmp.w	#_GM_INTERNAL_MODE,d0
+	move	#_GM_VERSION_NUMBER,d1
+	bsr	_gm_internal_tgusemd_d2m1
+	cmpi	#_GM_INTERNAL_MODE,d0
 	bne	disable_not_keep
 
-	pea	message_disable
+	pea	(message_disable,pc)
 	bsr	_vprint
 	addq.l	#4,sp
 
-	move.w	#_GM_AUTO_DISABLE,d1
-	moveq.l	#-1,d2
-	bsr	_gm_internal_tgusemd	* 常駐していればマスク不許可フラグをセット
-	clr.l	d0
+	move	#_GM_AUTO_DISABLE,d1
+	bsr	_gm_internal_tgusemd_d2m1	* 常駐していればマスク不許可フラグをセット
 disable_end:
-	movem.l	(sp)+,exec_register
+	moveq	#0,d0
 	rts
 
 disable_not_keep:
-	pea	message_disable_not_keep
+	pea	(message_disable_not_keep,pc)
 	bsr	_error_print
 	addq.l	#4,sp
-	moveq.l	#EXIT_ERROR_NOT_KEEP,d0
-	bra	disable_end
+	moveq	#EXIT_ERROR_NOT_KEEP,d0
+	rts
 
 *-------------------------------------------------------------------------------
 
 	.data
 message_enable:
-	.dc.b	'これ以後のオートマスクを許可します。',13,10
+	.dc.b	'これ以後のオートマスクを許可します。',CRLF
 	.dc.b	0
 
 	.text
 enable:
-	movem.l	exec_register,-(sp)
-	clr.l	d0
-	btst.l	#OPT_E,d7
+	btst	#OPT_E,d7
 	beq	enable_end
 
-	move.w	#_GM_VERSION_NUMBER,d1
-	moveq.l	#-1,d2
-	bsr	_gm_internal_tgusemd
-	cmp.w	#_GM_INTERNAL_MODE,d0
+	move	#_GM_VERSION_NUMBER,d1
+	bsr	_gm_internal_tgusemd_d2m1
+	cmpi	#_GM_INTERNAL_MODE,d0
 	bne	enable_not_keep
 
-	pea	message_enable
+	pea	(message_enable,pc)
 	bsr	_vprint
 	addq.l	#4,sp
 
-	move.w	#_GM_AUTO_ENABLE,d1
-	moveq.l	#-1,d2
-	bsr	_gm_internal_tgusemd	* 常駐していればマスク許可フラグをセット
-	clr.l	d0
+	move	#_GM_AUTO_ENABLE,d1
+	bsr	_gm_internal_tgusemd_d2m1	* 常駐していればマスク許可フラグをセット
 enable_end:
-	movem.l	(sp)+,exec_register
+	moveq	#0,d0
 	rts
 
 enable_not_keep:
-	pea	message_disable_not_keep
+	pea	(message_disable_not_keep,pc)
 	bsr	_error_print
 	addq.l	#4,sp
-	moveq.l	#EXIT_ERROR_NOT_KEEP,d0
-	bra	enable_end
+	moveq	#EXIT_ERROR_NOT_KEEP,d0
+	rts
 
 *-------------------------------------------------------------------------------
 
 	.data
 message_mask:
-	.dc.b	'テキストプレーン３でグラフィック画面をマスクします。',13,10
+	.dc.b	'テキストプレーン３でグラフィック画面をマスクします。',CRLF
 	.dc.b	0
 message_mask_request:
-	.dc.b	'グラフィック画面のマスクをリクエストします。',13,10
+	.dc.b	'グラフィック画面のマスクをリクエストします。',CRLF
 	.dc.b	0
 message_tram_used:
-	.dc.b	'テキストラムはアプリケーションで使用中です。',13,10
+	.dc.b	'ＴＶＲＡＭはアプリケーションで使用中です。',CRLF
 	.dc.b	0
-
-TEXTVRAM_P3_ADDRESS	equ	$e60000
-TEXTPALETTE_ADDRESS	equ	$e82200
 
 	.text
 mask:
-	movem.l	exec_register,-(sp)
-	clr.l	d0
-	btst.l	#OPT_M,d7
+	btst	#OPT_M,d7
 	beq	mask_end
 
-	move.w	#_GM_VERSION_NUMBER,d1
-	moveq.l	#-1,d2
-	bsr	_gm_internal_tgusemd
-	cmp.w	#_GM_INTERNAL_MODE,d0
+	move	#_GM_VERSION_NUMBER,d1
+	bsr	_gm_internal_tgusemd_d2m1
+	cmpi	#_GM_INTERNAL_MODE,d0
 	bne	mask_not_keep
 
-	moveq.l	#-1,d1
-	IOCS	__CRTMOD
-	cmp.b	#16,d0
+	moveq	#-1,d1
+	IOCS	_CRTMOD
+	cmpi.b	#16,d0
 	bne	mask_keep_request
-	lea	$e82400,a1
-	IOCS	__B_WPEEK
-	and.w	#$0007,d0
-	cmp.w	#$0003,d0
+	lea	(VC_R0),a1
+	IOCS	_B_WPEEK
+	andi	#7,d0
+	subq	#3,d0
 	bne	mask_keep_request
 
 	bsr	tram_check
 	tst.l	d0
 	bne	mask_tram_used		* アプリケーションで使用中
-	move.w	#_GM_MASK_SET,d1
-	moveq.l	#-1,d2
-	bsr	_gm_internal_tgusemd	* 画面モードが７６８×５１２ならば即マスクする
+	move	#_GM_MASK_SET,d1
+	bsr	_gm_internal_tgusemd_d2m1	* 画面モードが７６８×５１２ならば即マスクする
 
-	pea	message_mask
+	pea	(message_mask,pc)
 	bra	mask_keep_print_end
 
 mask_keep_request:
-	move.w	#_GM_MASK_REQUEST,d1
-	moveq.l	#-1,d2
-	bsr	_gm_internal_tgusemd	* 常駐していればマスクのリクエスト
+	move	#_GM_MASK_REQUEST,d1
+	bsr	_gm_internal_tgusemd_d2m1	* 常駐していればマスクのリクエスト
 
-	pea	message_mask_request
+	pea	(message_mask_request,pc)
 mask_keep_print_end:
 	bsr	_vprint
 	addq.l	#4,sp
-	clr.l	d0
 	bra	mask_end
 
 mask_not_keep:
@@ -3674,54 +3457,47 @@ mask_not_keep:
 	tst.l	d0
 	bne	mask_tram_used		* アプリケーションで使用中
 
-	pea	message_mask
+	pea	(message_mask,pc)
 	bsr	_vprint
 	addq.l	#4,sp
 
-	_TO_SUPER
-	bsr	mask_sub
-	_TO_USER
-
-	clr.l	d0
+	pea	(mask_sub,pc)
+	DOS	_SUPER_JSR
+	addq.l	#4,sp
 mask_end:
-	movem.l	(sp)+,exec_register
+	moveq	#0,d0
 	rts
 
 mask_tram_used:
-	pea	message_tram_used
+	pea	(message_tram_used,pc)
 	bsr	_error_print
 	addq.l	#4,sp
-	moveq.l	#EXIT_ERROR_TRAM_USED,d0
-	bra	mask_end
+	moveq	#EXIT_ERROR_TRAM_USED,d0
+	rts
 
 *-------------------------------------------------------------------------------
 
 	.data
 message_clear:
-	.dc.b	'グラフィック画面のマスク解除します。',13,10
+	.dc.b	'グラフィック画面のマスク解除します。',CRLF
 	.dc.b	0
 
 	.text
 clear:
-	movem.l	exec_register,-(sp)
-	clr.l	d0
-	btst.l	#OPT_C,d7
+	btst	#OPT_C,d7
 	beq	clear_end
 
-	move.w	#_GM_VERSION_NUMBER,d1
-	moveq.l	#-1,d2
-	bsr	_gm_internal_tgusemd
-	cmp.w	#_GM_INTERNAL_MODE,d0
+	move	#_GM_VERSION_NUMBER,d1
+	bsr	_gm_internal_tgusemd_d2m1
+	cmpi	#_GM_INTERNAL_MODE,d0
 	bne	clear_not_keep
 
-	pea	message_clear
+	pea	(message_clear,pc)
 	bsr	_vprint
 	addq.l	#4,sp
 
-	move.w	#_GM_MASK_CLEAR,d1
-	moveq.l	#-1,d2
-	bsr	_gm_internal_tgusemd	* 常駐していれば即マスククリアする
-	clr.l	d0
+	move	#_GM_MASK_CLEAR,d1
+	bsr	_gm_internal_tgusemd_d2m1	* 常駐していれば即マスククリアする
 	bra	clear_end
 
 clear_not_keep:
@@ -3729,148 +3505,85 @@ clear_not_keep:
 	tst.l	d0
 	bne	clear_tram_used		* アプリケーションで使用中
 
-	pea	message_clear
+	pea	(message_clear,pc)
 	bsr	_vprint
 	addq.l	#4,sp
 
-	_TO_SUPER
-	bsr	clear_sub
-	_TO_USER
-
-	clr.l	d0
+	pea	(clear_sub,pc)
+	DOS	_SUPER_JSR
+	addq.l	#4,sp
 clear_end:
-	movem.l	(sp)+,exec_register
+	moveq	#0,d0
 	rts
 
 clear_tram_used:
-	pea	message_tram_used
+	pea	(message_tram_used,pc)
 	bsr	_error_print
 	addq.l	#4,sp
-	moveq.l	#EXIT_ERROR_TRAM_USED,d0
-	bra	clear_end
-
-*-------------------------------------------------------------------------------
-
-	.ifndef	__OS_VERCHK__
-*-------------------------------------------------------------------------------
-* デフォルト・・・
-
-	.text
-program_ver_check:
+	moveq	#EXIT_ERROR_TRAM_USED,d0
 	rts
-
-*-------------------------------------------------------------------------------
-	.else
-	.ifndef	__HUMAN_V2__
-*-------------------------------------------------------------------------------
-* ＯＳのバージョンチェック
-
-	.data
-message_ver_error:
-	.dc.b	'ＯＳのバージョンが古すぎるぅ',13,10
-	.dc.b	'Human68k version 3.00以降を使ってね。',13,10,0
-
-	.text
-program_ver_check:
-	DOS	__VERNUM
-	cmp.w	#$0300,d0
-	bcs	program_ver_check_error
-	rts
-program_ver_check_error:
-	pea	message_ver_error
-	DOS	__PRINT
-	addq.l	#4,sp
-	move.w	#EXIT_ERROR_OS_VERSION,-(sp)
-	DOS	__EXIT2
-
-	.else
-*-------------------------------------------------------------------------------
-
-	.data
-message_ver_error:
-	.dc.b	'ＯＳのバージョンが新しすぎるぅ',13,10
-	.dc.b	'Human68k version 3.00以前を使ってね。',13,10,0
-
-	.text
-program_ver_check:
-	DOS	__VERNUM
-	cmp.w	#$0300,d0
-	bcc	program_ver_check_error
-	rts
-program_ver_check_error:
-	pea	message_ver_error
-	DOS	__PRINT
-	addq.l	#4,sp
-	move.w	#EXIT_ERROR_OS_VERSION,-(sp)
-	DOS	__EXIT2
-
-*-------------------------------------------------------------------------------
-	.endif		* for __HUMAN_V2__
-	.endif		* for __OS_VERCHK__
-
 
 *-------------------------------------------------------------------------------
 * エラー処理
 
 	.data
-message_program_error:
-	.dc.b	'強制終了します。',13,10
-	.dc.b	0
-
-	.text
-program_error:
-	move.w	d0,-(sp)		* 終了コード
-	move.l	a0,-(sp)
-	DOS	__PRINT
-	addq.l	#4,sp
-	pea	message_program_error
-	DOS	__PRINT
-	addq.l	#4,sp
-	DOS	__EXIT2
-
-	.data
 message_program_error_setblock:
-	.dc.b	'メモリブロックの変更ができません。',13,10
+	.dc.b	'メモリブロックの変更ができません。',CRLF
+	.dc.b	0
+message_program_error:
+	.dc.b	'強制終了します。',CRLF
 	.dc.b	0
 
 	.text
 program_error_setblock:
-	lea	message_program_error_setblock,a0
-	move.w	#EXIT_ERROR_SETBLOCK,d0
+	lea	(message_program_error_setblock,pc),a0
+	moveq	#EXIT_ERROR_SETBLOCK,d0
 	bra	program_error
+
+program_error:
+	move	d0,-(sp)		* 終了コード
+	move.l	a0,-(sp)
+	DOS	_PRINT
+	pea	(message_program_error,pc)
+	DOS	_PRINT
+	addq.l	#8,sp
+	DOS	_EXIT2
 
 *-------------------------------------------------------------------------------
 
 *-------------------------------------------------------------------------------
 * 常駐チェック
 *
-* entry:
-*   a0.l = 識別文字列のアドレス (name + versionを設定すること)
-*   a1.l = 自分のメモリ管理ポインタのアドレス
 * return:
 *   d0.l = 0 プログラムが見つかりません
 *        = 1 すでに常駐済みです
 *        = 2 バージョン違いです
 *        = 3 内部エラーです (動作は保証されません)
 *   a0.l = メモリ管理ポインタのアドレス (d0.l = 1, 2の時、それ以外は不定)
+* note:
+*   ユーザモードで呼び出すこと
+*   引数は受け取らないで自分で設定するように変更した
 
-keep_check_register	reg	d1-d5/a1-a3
+keep_check_register	reg	d1-d5/a1-a2
 
 	.text
 keep_check:
-	movem.l	keep_check_register,-(sp)
-	move.l	a0,a2
-	move.l	a1,a3
+	PUSH	keep_check_register
+
+	lea	(program_id_name,pc),a0	* 識別文字列(name + versionを設定すること)
+	lea	(program_text_start-$100,pc),a1
+					* 自分のメモリ管理ポインタ
+	movea.l	a0,a2
 	move.l	a0,d2
 	sub.l	a1,d2			* d2.l = 識別文字列の先頭までのオフセット
 
-	moveq.l	#-1,d4
+	moveq	#-1,d4
 keep_check_name_length:
 	addq.l	#1,d4
 	tst.b	(a0)+
 	bne	keep_check_name_length
 					* d4.l = nameの長さ（末尾の０を含まない）
-	moveq.l	#-1,d5
+	moveq	#-1,d5
 keep_check_version_length:
 	addq.l	#1,d5
 	tst.b	(a0)+
@@ -3881,41 +3594,42 @@ keep_check_version_length:
 	add.l	d5,d3
 	addq.l	#2,d3			* d3.l = 識別文字列最後の０までのオフセット
 
-	_TO_SUPER
+	clr.l	-(sp)
+	DOS	_SUPER			* スーパーバイザーモードへ
+	move.l	d0,(sp)
 
-	move.l	a3,a0			* 自分のメモリ管理ポインタから親をたどる
+	move.l	a1,d0			* 自分のメモリ管理ポインタから親をたどる
 keep_check_backward_loop:
+	movea.l	d0,a0
 
 	.ifdef	__DEBUG__
-	move.w	#'B',-(sp)
-	DOS	__PUTCHAR
+	move	#'B',-(sp)
+	DOS	_PUTCHAR
 	addq.l	#2,sp
 	.endif
 
-	tst.l	$04(a0)			* 親があるか？
-	beq	keep_check_forward_loop
-	move.l	$04(a0),a0		* 親のメモリ管理ポインタを得る
-	bra	keep_check_backward_loop
-
+	move.l	(4,a0),d0		* 親があるか？
+	bne	keep_check_backward_loop
 keep_check_forward_loop:
 
 	.ifdef	__DEBUG__
-	move.w	#'F',-(sp)
-	DOS	__PUTCHAR
+	move	#'F',-(sp)
+	DOS	_PUTCHAR
 	addq.l	#2,sp
 	.endif
 
-	move.l	$0c(a0),d0
+	move.l	(12,a0),d1
 	beq	keep_check_not_found	* 見つからなかった
-	move.l	d0,a0
-	move.l	$08(a0),d0
+	move.l	d1,a0
+	cmpi.b	#$ff,(4,a0)
+	bne	keep_check_forward_loop	* 常駐プロセスではない
+
+	move.l	(8,a0),d0
 	lea	(a0,d3.l),a1
 	cmp.l	a1,d0
 	bls	keep_check_forward_loop	* メモリブロックの範囲外
-	lea	(a0,d2.l),a1
-	cmp.l	a1,a2
-	beq	keep_check_forward_loop	* 自分自身だった・・・
 
+	lea	(a0,d2.l),a1
 keep_check_forward_name:
 	move.l	a2,d1
 	move.l	d4,d0
@@ -3931,39 +3645,41 @@ keep_check_forward_version:
 keep_check_forward_version_compare:
 	cmpm.b	(a2)+,(a1)+
 	dbne	d0,keep_check_forward_version_compare
-	bne	keep_check_version_no_match	* バージョンが違うみたいだなぁ
-	bra	keep_check_match
+	beq	keep_check_match
 
-keep_check_not_found:
-	moveq.l	#0,d0
+keep_check_version_no_match:		* バージョンが違うみたいだなぁ
+	moveq	#2,d1
 	bra	keep_check_end
 
 keep_check_match:
-	moveq.l	#1,d0
+	moveq	#1,d1
 	bra	keep_check_end
 
-keep_check_version_no_match:
-	moveq.l	#2,d0
+keep_check_not_found:
+*	moveq	#0,d1
 	bra	keep_check_end
 
-keep_check_error:
-	moveq.l	#3,d0
+*keep_check_error:			* 未使用
+*	moveq	#3,d1
+*	bra	keep_check_end
 
 keep_check_end:
-	move.l	d0,d1
-	_TO_USER
+*	tst.b	(sp)
+*	bmi	@f
+	DOS	_SUPER			* ユーザーモードへ
+*@@:
+	addq.l	#4,sp
 
 	.ifdef	__DEBUG__
-	move.w	#13,-(sp)
-	DOS	__PUTCHAR
-	addq.l	#2,sp
-	move.w	#10,-(sp)
-	DOS	__PUTCHAR
+	move	#CR,-(sp)
+	DOS	_PUTCHAR
+	move	#LF,(sp)
+	DOS	_PUTCHAR
 	addq.l	#2,sp
 	.endif
 
 	move.l	d1,d0
-	movem.l	(sp)+,keep_check_register
+	POP	keep_check_register
 	rts
 
 *-------------------------------------------------------------------------------
@@ -3985,4 +3701,4 @@ program_stack_end:
 	.text
 *
 
-	.end	program_start
+	.end	program_start_0

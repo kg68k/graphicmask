@@ -1,40 +1,66 @@
-# $Id: Makefile,v 1.1 1994/09/13 21:57:34 JACK Exp $
+# Makefile for Graphic Mask
 
-CC	= gcc
-CFLAGS	= -Wall			\
-	  -O			\
-	  -fomit-frame-pointer	\
-	  -fstrength-reduce	\
-	  -fall-bsr		\
-	  -fcombine-regs	\
-	  -fforce-mem		\
-#	  -fforce-addr		\
+ifeq ($(notdir $(CURDIR)),src)
+$(error do not execute make in src directory)
+endif
 
-AS	= as
-ASFLAGS	= -u -w
+SRCDIR_MK = ../srcdir.mk
+SRC_DIR = ../src
+-include $(SRCDIR_MK)
 
-LD	= gcc
-LDFLAGS	=
+AS = has060
+ASFLAGS = -w2 -s__CRLF__
+LD ?= hlk
+LDFLAGS =
+CV = cv
+U8TOSJ = u8tosj
 
-#-----------------------------------------------#
+ifeq ($(findstring hlkx,$(LD)),hlkx)
+USE_HLKX = true
+endif
 
-PROGS	= gm.x gmss.x gsvexe.x
 
-ALLTARGET	= $(PROGS)
+PROGS = gm.r gmss.r gsvexe.x
+PROGS_X = $(PROGS:.r=.x)
+OBJS = $(PROGS_X:.x=.o)
+DOCS = README.txt CHANGELOG.txt
 
-#-----------------------------------------------#
+GM_ZIP = gm_p.zip
+
+
+.PHONY: all archive clean
+.PRECIOUS: %.o %.x
 
 all: $(PROGS)
 
+%.x: %.s
+%.o: %.s gm_internal.mac
+	$(AS) $(ASFLAGS) -o$@ $<
+
 %.x: %.o
-	$(LD) $(LDFLAGS) $(LDLIBS) -o $@ $^
+	$(LD) $(LDFLAGS) -o$@ $^
+
+ifdef USE_HLKX
+%.r: %.o
+	$(LD) $(LDFLAGS) -r -o$@ $^
+else
+%.r: %.x
+	$(CV) $< $@
+endif
+
+
+archive: $(GM_ZIP)
+
+$(GM_ZIP): $(DOCS) $(PROGS)
+	rm -f $@
+	zip -9 $@ $^
+
+%.txt: $(SRC_DIR)/../%.md
+	rm -f $@
+	$(U8TOSJ) < $^ > $@
+
 
 clean:
-	rm -f *.o *.x *.bak *~ .*~ \#* $(ALLTARGET)
+	rm -f $(GM_ZIP) $(DOCS) $(PROGS) $(PROGS_X) $(OBJS)
 
-#-----------------------------------------------#
-
-gm.o : gm.s gm_internal.mac
-gmss.o : gmss.s gm_internal.mac
-gsvexe.o : gsvexe.s gm_internal.mac
-
+# EOF
